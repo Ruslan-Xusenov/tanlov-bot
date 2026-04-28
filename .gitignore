@@ -1,0 +1,4 @@
+.env
+tanlov.db
+tanlov-bot
+deploy.sh

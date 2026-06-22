@@ -94,7 +94,7 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 	}
 
 	// Stats line shown only to the user themselves
-	statsText := fmt.Sprintf("\n\n👥 Siz chaqirgan foydalanuvchilar: <b>%d ta</b>", count)
+	statsText := fmt.Sprintf("\n\n🔗 <b>Sizning referal havolangiz:</b>\n%s\n\n👥 Siz chaqirgan foydalanuvchilar: <b>%d ta</b>", link, count)
 
 	msg := tgbotapi.NewMessage(chatID, adText+statsText)
 	msg.ParseMode = "HTML"

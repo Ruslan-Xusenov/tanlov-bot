@@ -136,6 +136,20 @@ func (r *Router) Route(update tgbotapi.Update) {
 				SendSubscriptionGate(r.Bot, chatID, missing)
 				return
 			}
+
+			// User is fully registered now (has phone, and passed sub gate)
+			// Try to approve referral
+			user, err := db.GetUser(userID)
+			if err == nil && user != nil && user.ReferralStatus == 0 && user.ReferredBy > 0 {
+				if err := db.ApproveReferral(userID); err == nil {
+					who := formatUserIdentifier(msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName)
+					text := fmt.Sprintf("🎉 <b>Referalingiz tasdiqlandi!</b>\n\n👤 %s botdan ro'yxatdan o'tdi va sizga referal bali qo'shildi.", who)
+					notifyMsg := tgbotapi.NewMessage(user.ReferredBy, text)
+					notifyMsg.ParseMode = "HTML"
+					r.Bot.Send(notifyMsg)
+				}
+			}
+
 			sendWelcome(r.Bot, chatID)
 		} else {
 			send(r.Bot, chatID, "⚠️ Iltimos, o'zingizning raqamingizni yuboring.")

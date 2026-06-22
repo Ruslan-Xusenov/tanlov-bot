@@ -494,8 +494,20 @@ func addAdminByInput(bot *tgbotapi.BotAPI, chatID int64, input string, addedBy i
 			send(bot, chatID, "❌ Noto'g'ri format. ID raqam yoki @username bo'lishi kerak.")
 			return
 		}
-		targetID = id
-		targetName = fmt.Sprintf("<code>%d</code>", id)
+		user, err := db.GetUser(id)
+		if err != nil || user == nil {
+			// Create a dummy user so they can still be added as admin
+			db.UpsertUser(id, "", "Admin")
+			targetID = id
+			targetName = fmt.Sprintf("Admin (<code>%d</code>)", id)
+		} else {
+			targetID = user.ID
+			if user.Username != "" {
+				targetName = fmt.Sprintf("@%s (<code>%d</code>)", user.Username, id)
+			} else {
+				targetName = fmt.Sprintf("%s (<code>%d</code>)", user.FullName, id)
+			}
+		}
 	}
 
 	if err := db.AddAdmin(targetID, addedBy); err != nil {

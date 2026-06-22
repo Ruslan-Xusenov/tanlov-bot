@@ -56,10 +56,13 @@ func adminPanelKeyboard() tgbotapi.ReplyKeyboardMarkup {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("📣 Reklama matni"),
-			tgbotapi.NewKeyboardButton("✉️ Xabar yuborish"),
+			tgbotapi.NewKeyboardButton("📝 Qo'llanma matni"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("✉️ Xabar yuborish"),
 			tgbotapi.NewKeyboardButton("👥 Adminlar"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("🔙 Orqaga"),
 		),
 	)
@@ -211,6 +214,22 @@ func handleAdminReferralAdEdit(bot *tgbotapi.BotAPI, chatID int64) {
 	bot.Send(msg)
 }
 
+func handleAdminQullanmaEdit(bot *tgbotapi.BotAPI, chatID int64) {
+	cur, _ := db.GetSetting("qullanma_text")
+	adminState.Set(chatID, "await_qullanma_text")
+
+	cancelKb := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton("❌ Bekor qilish")),
+	)
+	msg := tgbotapi.NewMessage(chatID,
+		fmt.Sprintf("📄 <b>Joriy qo'llanma matni:</b>\n\n%s\n\n"+
+			"✏️ Yangi qo'llanma matnini yuboring.", cur),
+	)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = cancelKb
+	bot.Send(msg)
+}
+
 func handleAdminBroadcastStart(bot *tgbotapi.BotAPI, chatID int64) {
 	adminState.Set(chatID, "await_broadcast_msg")
 	cancelKb := tgbotapi.NewReplyKeyboard(
@@ -288,6 +307,8 @@ func HandleAdminMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID in
 		handleAdminAksiyaEdit(bot, chatID)
 	case "📣 Reklama matni":
 		handleAdminReferralAdEdit(bot, chatID)
+	case "📝 Qo'llanma matni":
+		handleAdminQullanmaEdit(bot, chatID)
 	case "✉️ Xabar yuborish":
 		handleAdminBroadcastStart(bot, chatID)
 	case "👥 Adminlar":
@@ -326,6 +347,15 @@ func handleAdminState(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int6
 			send(bot, chatID, "❌ Saqlashda xatolik.")
 		} else {
 			send(bot, chatID, "✅ Reklama matni yangilandi! Endi foydalanuvchilar referal havolasini so'raganda yangi matn ko'rinadi.")
+		}
+		adminState.Clear(chatID)
+		HandleAdminPanel(bot, chatID)
+
+	case "await_qullanma_text":
+		if err := db.SetSetting("qullanma_text", text); err != nil {
+			send(bot, chatID, "❌ Saqlashda xatolik.")
+		} else {
+			send(bot, chatID, "✅ Qo'llanma matni yangilandi!")
 		}
 		adminState.Clear(chatID)
 		HandleAdminPanel(bot, chatID)

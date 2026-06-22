@@ -34,22 +34,8 @@ func (r *Router) Route(update tgbotapi.Update) {
 			}
 			if ok {
 				// Subscription passed
-				// 1. Check if we need to award a pending referral
-				user, err := db.GetUser(userID)
-				if err == nil && user != nil && user.ReferralStatus == 0 && user.ReferredBy > 0 {
-					if err := db.ApproveReferral(userID); err == nil {
-						// Notify referrer
-						who := formatUserIdentifier(cq.From.UserName, cq.From.FirstName+" "+cq.From.LastName)
-						text := fmt.Sprintf("🎉 <b>Referalingiz tasdiqlandi!</b>\n\n👤 %s majburiy kanallarga obuna bo'ldi va sizga referal bali qo'shildi.", who)
-						msg := tgbotapi.NewMessage(user.ReferredBy, text)
-						msg.ParseMode = "HTML"
-						r.Bot.Send(msg)
-					}
-				}
-
-				// 2. Remove gate message and show menu
 				r.Bot.Request(tgbotapi.NewDeleteMessage(chatID, cq.Message.MessageID))
-				sendWelcome(r.Bot, chatID)
+				CompleteRegistrationFlow(r.Bot, chatID, userID, cq.From.UserName, cq.From.FirstName+" "+cq.From.LastName, r.BotUsername)
 			} else {
 				// Edit the existing message to refresh channel list
 				callback := tgbotapi.NewCallback(cq.ID, "⚠️ Hali ham obuna bo'lmadingiz!")
@@ -111,65 +97,9 @@ func (r *Router) Route(update tgbotapi.Update) {
 
 	isAdmin := db.IsAdmin(userID) || userID == r.SuperAdminID
 
-	// ── Handle Contact (Phone number sharing) ──
-	if msg.Contact != nil {
-		if msg.Contact.UserID == userID {
-			phone := msg.Contact.PhoneNumber
-			if !(strings.HasPrefix(phone, "998") || strings.HasPrefix(phone, "+998")) {
-				send(r.Bot, chatID, "⚠️ Iltimos, faqat O'zbekiston (+998) raqamidan ro'yxatdan o'ting.")
-				return
-			}
-
-			if err := db.UpdateUserPhone(userID, phone); err != nil {
-				log.Printf("[router] failed to save phone: %v", err)
-			}
-			
-			// Remove the reply keyboard
-			removeKb := tgbotapi.NewRemoveKeyboard(true)
-			rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!")
-			rmMsg.ReplyMarkup = removeKb
-			r.Bot.Send(rmMsg)
-
-			// Proceed to subscription check
-			ok, missing, err := CheckUserSubscriptions(r.Bot, userID, false)
-			if err != nil || !ok {
-				SendSubscriptionGate(r.Bot, chatID, missing)
-				return
-			}
-
-			// User is fully registered now (has phone, and passed sub gate)
-			// Try to approve referral
-			user, err := db.GetUser(userID)
-			if err == nil && user != nil && user.ReferralStatus == 0 && user.ReferredBy > 0 {
-				if err := db.ApproveReferral(userID); err == nil {
-					who := formatUserIdentifier(msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName)
-					text := fmt.Sprintf("🎉 <b>Referalingiz tasdiqlandi!</b>\n\n👤 %s botdan ro'yxatdan o'tdi va sizga referal bali qo'shildi.", who)
-					notifyMsg := tgbotapi.NewMessage(user.ReferredBy, text)
-					notifyMsg.ParseMode = "HTML"
-					r.Bot.Send(notifyMsg)
-				}
-			}
-
-			sendWelcome(r.Bot, chatID)
-		} else {
-			send(r.Bot, chatID, "⚠️ Iltimos, o'zingizning raqamingizni yuboring.")
-		}
-		return
-	}
-
-	// For any other text message, block if they don't have a phone yet
-	user, err := db.GetUser(userID)
-	if (err != nil || user.Phone == "") && msg.IsCommand() && msg.Command() == "start" {
-		HandleStart(r.Bot, msg, r.SuperAdminID)
-		return
-	} else if err != nil || user.Phone == "" {
-		send(r.Bot, chatID, "⚠️ Iltimos, avval /start ni bosing va telefon raqamingizni yuboring.")
-		return
-	}
-
 	// /start command (handled before subscription gate)
 	if msg.IsCommand() && msg.Command() == "start" {
-		HandleStart(r.Bot, msg, r.SuperAdminID)
+		HandleStart(r.Bot, msg, r.SuperAdminID, r.BotUsername)
 		return
 	}
 
@@ -187,7 +117,8 @@ func (r *Router) Route(update tgbotapi.Update) {
 	if msg.Text == "⚙️ Admin panel" || msg.Text == "📢 Kanallar" ||
 		msg.Text == "📊 Statistika" || msg.Text == "✏️ Start xabari" ||
 		msg.Text == "🎁 Aksiya matni" || msg.Text == "📣 Reklama matni" ||
-		msg.Text == "👥 Adminlar" || msg.Text == "✉️ Xabar yuborish" ||
+		msg.Text == "📝 Qo'llanma matni" || msg.Text == "👥 Adminlar" ||
+		msg.Text == "✉️ Xabar yuborish" ||
 		msg.Text == "🔙 Orqaga" ||
 		msg.Text == "❌ Bekor qilish" {
 

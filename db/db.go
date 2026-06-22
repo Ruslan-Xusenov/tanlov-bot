@@ -136,6 +136,7 @@ func seedDefaultSettings() {
 		"start_video_file_id": "",
 		"aksiya_text": "⚡️ Hozircha faol aksiyalar yo'q. Kuzatib boring!",
 		"referral_ad_text": "🚀 Do'stingizni taklif qiling!\n\n🎁 Quyidagi tugma orqali botga qo'shiling va bonuslar yuting!\n\n👇 Pastdagi tugmani bosing:",
+		"qullanma_text": "📄 <b>Qo'llanma</b>\n\n1. Sizga berilgan referal havoladan nusxa oling.\n2. Do'stlaringizga yuboring.\n3. Ular botga kirib, majburiy kanallarga obuna bo'lishgach sizga referal ballari yoziladi!",
 	}
 	for key, val := range defaults {
 		if _, err := DB.Exec(

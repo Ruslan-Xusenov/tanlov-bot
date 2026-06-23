@@ -99,7 +99,7 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 		finalMessage = strings.ReplaceAll(finalMessage, "{count}", fmt.Sprintf("%d", count))
 	} else {
 		// Fallback for old configs that didn't use placeholders
-		statsText := fmt.Sprintf("\n\n🔗 <b>Sizning referal havolangiz:</b>\n%s\n\n👥 Siz chaqirgan foydalanuvchilar: <b>%d ta</b>", link, count)
+		statsText := fmt.Sprintf("\n\n🔗 <b>Sizning referal havolangiz:</b>\n%s", link)
 		finalMessage = adText + statsText
 	}
 

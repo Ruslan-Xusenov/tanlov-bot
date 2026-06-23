@@ -207,7 +207,9 @@ func handleAdminReferralAdEdit(bot *tgbotapi.BotAPI, chatID int64) {
 	msg := tgbotapi.NewMessage(chatID,
 		fmt.Sprintf("📣 <b>Joriy reklama matni:</b>\n\n%s\n\n"+
 			"✏️ Yangi reklama matnini yuboring.\n"+
-			"<i>Bu matn foydalanuvchi referal havolasini so'raganda, 'Botga o'tish' tugmasi ustida ko'rinadi.</i>", cur),
+			"<i>Siz matn ichida quyidagi maxsus so'zlardan foydalanishingiz mumkin:</i>\n"+
+			"<b>{link}</b> — foydalanuvchining shaxsiy referal havolasi\n"+
+			"<b>{count}</b> — foydalanuvchi taklif qilgan odamlar soni", cur),
 	)
 	msg.ParseMode = "HTML"
 	msg.ReplyMarkup = cancelKb

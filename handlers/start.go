@@ -65,7 +65,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 	}
 	if !ok {
 		kb := BuildSubscriptionKeyboard(missing)
-		sendWelcome(bot, chatID, false, &kb)
+		sendWelcome(bot, chatID, nil, &kb)
 		return
 	}
 
@@ -77,7 +77,8 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 	}
 
 	// ── Send welcome & Complete Registration ──
-	sendWelcome(bot, chatID, false, nil)
+	menu := getMenuForUser(userID)
+	sendWelcome(bot, chatID, &menu, nil)
 	CompleteRegistrationFlow(bot, chatID, userID, username, fullName, botUsername)
 }
 
@@ -107,29 +108,32 @@ func formatUserIdentifier(username, fullName string) string {
 }
 
 // sendWelcome sends the configured start message (with optional video)
-func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, sendMenu bool, inlineKb *tgbotapi.InlineKeyboardMarkup) {
+func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, replyKb *tgbotapi.ReplyKeyboardMarkup, inlineKb *tgbotapi.InlineKeyboardMarkup) {
 	text, _ := db.GetSetting("start_message")
 	videoFileID, _ := db.GetSetting("start_video_file_id")
+
+	var markup interface{}
+	if inlineKb != nil {
+		markup = *inlineKb
+	} else if replyKb != nil {
+		markup = *replyKb
+	}
 
 	if videoFileID != "" {
 		// Send video first
 		video := tgbotapi.NewVideo(chatID, tgbotapi.FileID(videoFileID))
 		video.Caption = text
 		video.ParseMode = "HTML"
-		if inlineKb != nil {
-			video.ReplyMarkup = *inlineKb
+		if markup != nil {
+			video.ReplyMarkup = markup
 		}
 		if _, err := bot.Send(video); err != nil {
 			log.Printf("[start] failed to send video: %v", err)
 			// Fallback to text
-			sendTextWelcome(bot, chatID, text, inlineKb)
+			sendTextWelcome(bot, chatID, text, markup)
 		}
 	} else {
-		sendTextWelcome(bot, chatID, text, inlineKb)
-	}
-
-	if sendMenu {
-		SendMenu(bot, chatID)
+		sendTextWelcome(bot, chatID, text, markup)
 	}
 }
 
@@ -154,18 +158,15 @@ func CompleteRegistrationFlow(bot *tgbotapi.BotAPI, chatID, userID int64, userna
 		}
 	}
 
-	// 2. Send menu
-	SendMenu(bot, chatID)
-
-	// 3. Send Referral Link
+	// 2. Send Referral Link
 	handleReferral(bot, chatID, userID, botUsername)
 }
 
-func sendTextWelcome(bot *tgbotapi.BotAPI, chatID int64, text string, inlineKb *tgbotapi.InlineKeyboardMarkup) {
+func sendTextWelcome(bot *tgbotapi.BotAPI, chatID int64, text string, markup interface{}) {
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = "HTML"
-	if inlineKb != nil {
-		msg.ReplyMarkup = *inlineKb
+	if markup != nil {
+		msg.ReplyMarkup = markup
 	}
 	bot.Send(msg)
 }

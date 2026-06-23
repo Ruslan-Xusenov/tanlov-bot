@@ -116,9 +116,9 @@ func (r *Router) Route(update tgbotapi.Update) {
 				log.Printf("[router] failed to save phone: %v", err)
 			}
 			
-			removeKb := tgbotapi.NewRemoveKeyboard(true)
+			// Attach main menu here instead of RemoveKeyboard
 			rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!")
-			rmMsg.ReplyMarkup = removeKb
+			rmMsg.ReplyMarkup = getMenuForUser(userID)
 			r.Bot.Send(rmMsg)
 
 			CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
@@ -138,9 +138,9 @@ func (r *Router) Route(update tgbotapi.Update) {
 				if err := db.UpdateUserPhone(userID, cleaned); err != nil {
 					log.Printf("[router] failed to save phone text: %v", err)
 				}
-				removeKb := tgbotapi.NewRemoveKeyboard(true)
+				// Attach main menu here
 				rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!")
-				rmMsg.ReplyMarkup = removeKb
+				rmMsg.ReplyMarkup = getMenuForUser(userID)
 				r.Bot.Send(rmMsg)
 
 				CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)

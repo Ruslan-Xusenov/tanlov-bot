@@ -90,13 +90,20 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 	// Get admin-configured ad text
 	adText, _ := db.GetSetting("referral_ad_text")
 	if adText == "" {
-		adText = "🚀 Do'stingizni taklif qiling!\n\n👇 Pastdagi tugmani bosing:"
+		adText = "🚀 Do'stingizni taklif qiling!\n\n👇 Pastdagi tugmani bosing:\n\n🔗 <b>Sizning referal havolangiz:</b>\n{link}\n\n👥 Siz chaqirgan foydalanuvchilar: <b>{count} ta</b>"
 	}
 
-	// Stats line shown only to the user themselves
-	statsText := fmt.Sprintf("\n\n🔗 <b>Sizning referal havolangiz:</b>\n%s\n\n👥 Siz chaqirgan foydalanuvchilar: <b>%d ta</b>", link, count)
+	var finalMessage string
+	if strings.Contains(adText, "{link}") || strings.Contains(adText, "{count}") {
+		finalMessage = strings.ReplaceAll(adText, "{link}", link)
+		finalMessage = strings.ReplaceAll(finalMessage, "{count}", fmt.Sprintf("%d", count))
+	} else {
+		// Fallback for old configs that didn't use placeholders
+		statsText := fmt.Sprintf("\n\n🔗 <b>Sizning referal havolangiz:</b>\n%s\n\n👥 Siz chaqirgan foydalanuvchilar: <b>%d ta</b>", link, count)
+		finalMessage = adText + statsText
+	}
 
-	msg := tgbotapi.NewMessage(chatID, adText+statsText)
+	msg := tgbotapi.NewMessage(chatID, finalMessage)
 	msg.ParseMode = "HTML"
 	// Inline URL button — clicking opens bot directly with referral deep-link
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(

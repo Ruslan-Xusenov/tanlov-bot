@@ -18,16 +18,17 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 	fullName := strings.TrimSpace(msg.From.FirstName + " " + msg.From.LastName)
 	chatID := msg.Chat.ID
 
-	// Parse referral code from /start ref_XXXXX
+	// Parse referral code from /start ref_XXXXX or /start XXXXX
 	var referrerID int64
 	if msg.CommandArguments() != "" {
 		arg := msg.CommandArguments()
+		idStr := arg
 		if strings.HasPrefix(arg, "ref_") {
-			idStr := strings.TrimPrefix(arg, "ref_")
-			parsed, err := strconv.ParseInt(idStr, 10, 64)
-			if err == nil && parsed != userID {
-				referrerID = parsed
-			}
+			idStr = strings.TrimPrefix(arg, "ref_")
+		}
+		parsed, err := strconv.ParseInt(idStr, 10, 64)
+		if err == nil && parsed != userID {
+			referrerID = parsed
 		}
 	}
 

@@ -158,8 +158,9 @@ func CompleteRegistrationFlow(bot *tgbotapi.BotAPI, chatID, userID int64, userna
 		}
 	}
 
-	// 2. Send Referral Link
-	handleReferral(bot, chatID, userID, botUsername)
+	// 2. Send Qo'llanma with the main menu attached
+	menu := getMenuForUser(userID)
+	handleQullanma(bot, chatID, menu)
 }
 
 func sendTextWelcome(bot *tgbotapi.BotAPI, chatID int64, text string, markup interface{}) {

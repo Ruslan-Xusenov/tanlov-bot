@@ -29,18 +29,24 @@ func HandleUserMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, botUsername 
 	case "Taklif havolam":
 		handleReferral(bot, chatID, userID, botUsername)
 	case "Qo`llanma":
-		handleQullanma(bot, chatID)
+		handleQullanma(bot, chatID, nil)
 	case "Ballarim":
 		handleBallarim(bot, chatID, userID)
 	}
 }
 
-func handleQullanma(bot *tgbotapi.BotAPI, chatID int64) {
+func handleQullanma(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 	qullanmaText, _ := db.GetSetting("qullanma_text")
 	if qullanmaText == "" {
 		qullanmaText = "📄 <b>Qo'llanma</b>\nSizga berilgan referal havoladan nusxa oling va do'stlaringizga yuboring."
 	}
-	send(bot, chatID, qullanmaText)
+	
+	msg := tgbotapi.NewMessage(chatID, qullanmaText)
+	msg.ParseMode = "HTML"
+	if markup != nil {
+		msg.ReplyMarkup = markup
+	}
+	bot.Send(msg)
 }
 
 func handleBallarim(bot *tgbotapi.BotAPI, chatID, userID int64) {

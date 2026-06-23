@@ -28,6 +28,8 @@ func HandleUserMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, botUsername 
 		handleRating(bot, chatID)
 	case "Taklif havolam":
 		handleReferral(bot, chatID, userID, botUsername)
+	case "Aksiya haqida":
+		handleAksiya(bot, chatID)
 	case "Qo`llanma":
 		handleQullanma(bot, chatID, nil)
 	case "Ballarim":
@@ -160,16 +162,35 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 	}
 }
 
-// handleAksiya shows the current promotion text
 func handleAksiya(bot *tgbotapi.BotAPI, chatID int64) {
-	text, err := db.GetSetting("aksiya_text")
-	if err != nil || text == "" {
+	text, _ := db.GetSetting("aksiya_text")
+	photoID, _ := db.GetSetting("aksiya_photo_id")
+	videoID, _ := db.GetSetting("aksiya_video_id")
+
+	if text == "" && photoID == "" && videoID == "" {
 		text = "⚡️ Hozircha faol aksiyalar yo'q. Kuzatib boring!"
 	}
 
-	msg := tgbotapi.NewMessage(chatID, "🎁 <b>Aksiya & Takliflar</b>\n\n"+text)
-	msg.ParseMode = "HTML"
-	bot.Send(msg)
+	caption := "🎁 <b>Aksiya & Takliflar</b>\n\n" + text
+	if text == "" {
+		caption = "🎁 <b>Aksiya & Takliflar</b>"
+	}
+
+	if videoID != "" {
+		msg := tgbotapi.NewVideo(chatID, tgbotapi.FileID(videoID))
+		msg.Caption = caption
+		msg.ParseMode = "HTML"
+		bot.Send(msg)
+	} else if photoID != "" {
+		msg := tgbotapi.NewPhoto(chatID, tgbotapi.FileID(photoID))
+		msg.Caption = caption
+		msg.ParseMode = "HTML"
+		bot.Send(msg)
+	} else {
+		msg := tgbotapi.NewMessage(chatID, caption)
+		msg.ParseMode = "HTML"
+		bot.Send(msg)
+	}
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────

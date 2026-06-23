@@ -191,6 +191,7 @@ func userMenuKeyboard() tgbotapi.ReplyKeyboardMarkup {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("Top taklif qilganlar"),
+			tgbotapi.NewKeyboardButton("Aksiya haqida"),
 		),
 	)
 }
@@ -206,6 +207,7 @@ func adminMenuKeyboard() tgbotapi.ReplyKeyboardMarkup {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("Top taklif qilganlar"),
+			tgbotapi.NewKeyboardButton("Aksiya haqida"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("⚙️ Admin panel"),

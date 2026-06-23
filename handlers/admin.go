@@ -190,7 +190,7 @@ func handleAdminAksiyaEdit(bot *tgbotapi.BotAPI, chatID int64) {
 		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton("❌ Bekor qilish")),
 	)
 	msg := tgbotapi.NewMessage(chatID,
-		fmt.Sprintf("🎁 <b>Joriy aksiya matni:</b>\n\n%s\n\n✏️ Yangi matnni yuboring:", cur),
+		fmt.Sprintf("🎁 <b>Joriy aksiya matni:</b>\n\n%s\n\n✏️ Yangi matnni yuboring. (Rasm yoki video bilan birga caption tarzida yuborsangiz ham bo'ladi):", cur),
 	)
 	msg.ParseMode = "HTML"
 	msg.ReplyMarkup = cancelKb
@@ -336,11 +336,38 @@ func handleAdminState(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int6
 		HandleAdminPanel(bot, chatID)
 
 	case "await_aksiya_text":
-		if err := db.SetSetting("aksiya_text", text); err != nil {
-			send(bot, chatID, "❌ Saqlashda xatolik.")
+		adText := text
+		if msg.Video != nil {
+			db.SetSetting("aksiya_video_id", msg.Video.FileID)
+			db.SetSetting("aksiya_photo_id", "")
+			if msg.Caption != "" {
+				adText = msg.Caption
+			} else {
+				adText = ""
+			}
+		} else if len(msg.Photo) > 0 {
+			photo := msg.Photo[len(msg.Photo)-1]
+			db.SetSetting("aksiya_photo_id", photo.FileID)
+			db.SetSetting("aksiya_video_id", "")
+			if msg.Caption != "" {
+				adText = msg.Caption
+			} else {
+				adText = ""
+			}
 		} else {
-			send(bot, chatID, "✅ Aksiya matni yangilandi!")
+			db.SetSetting("aksiya_photo_id", "")
+			db.SetSetting("aksiya_video_id", "")
 		}
+
+		if adText != "" || len(msg.Photo) > 0 || msg.Video != nil {
+			if adText != "" {
+				db.SetSetting("aksiya_text", adText)
+			}
+			send(bot, chatID, "✅ Aksiya matni (va fayl) yangilandi!")
+		} else {
+			send(bot, chatID, "❌ Hech narsa kiritilmadi.")
+		}
+
 		adminState.Clear(chatID)
 		HandleAdminPanel(bot, chatID)
 

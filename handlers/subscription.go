@@ -56,13 +56,18 @@ func CheckUserSubscriptions(bot *tgbotapi.BotAPI, userID int64, forceCheck bool)
 }
 
 // SendSubscriptionGate sends the mandatory subscription message with channel buttons
-func SendSubscriptionGate(bot *tgbotapi.BotAPI, chatID int64, missing []db.Channel) {
+func SendSubscriptionGate(bot *tgbotapi.BotAPI, chatID int64, missing []db.Channel, customText ...string) {
 	var sb strings.Builder
-	sb.WriteString("⚠️ <b>Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling:</b>\n\n")
-	for i, ch := range missing {
-		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, ch.ChannelName))
+	
+	if len(customText) > 0 && customText[0] != "" {
+		sb.WriteString(customText[0])
+	} else {
+		sb.WriteString("⚠️ <b>Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling:</b>\n\n")
+		for i, ch := range missing {
+			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, ch.ChannelName))
+		}
+		sb.WriteString("\n✅ Obuna bo'lgach, <b>Obuna bo'ldim</b> tugmasini bosing.")
 	}
-	sb.WriteString("\n✅ Obuna bo'lgach, <b>Tekshirish</b> tugmasini bosing.")
 
 	// Build inline buttons: one button per channel + check button
 	var rows [][]tgbotapi.InlineKeyboardButton
@@ -72,11 +77,11 @@ func SendSubscriptionGate(bot *tgbotapi.BotAPI, chatID int64, missing []db.Chann
 			url = "https://t.me/" + strings.TrimPrefix(ch.ChannelID, "@")
 		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("👉 "+ch.ChannelName, url),
+			tgbotapi.NewInlineKeyboardButtonURL(ch.ChannelName, url),
 		))
 	}
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("✅ Tekshirish", "check_sub"),
+		tgbotapi.NewInlineKeyboardButtonData("Obuna bo'ldim", "check_sub"),
 	))
 
 	msg := tgbotapi.NewMessage(chatID, sb.String())

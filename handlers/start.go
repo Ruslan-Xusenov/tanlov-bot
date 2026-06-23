@@ -57,18 +57,19 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 		db.AddAdmin(userID, 0)
 	}
 
-	// ── Send welcome ──
-	sendWelcome(bot, chatID, false)
-
 	// ── Subscription gate ──
 	ok, missing, err := CheckUserSubscriptions(bot, userID, false)
 	if err != nil {
 		log.Printf("[start] sub check error for user %d: %v", userID, err)
 	}
 	if !ok {
-		SendSubscriptionGate(bot, chatID, missing)
+		text, _ := db.GetSetting("start_message")
+		SendSubscriptionGate(bot, chatID, missing, text)
 		return
 	}
+
+	// ── Send welcome ──
+	sendWelcome(bot, chatID, false)
 
 	// ── Complete Registration ──
 	CompleteRegistrationFlow(bot, chatID, userID, username, fullName, botUsername)

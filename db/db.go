@@ -132,7 +132,7 @@ func migrate() {
 
 func seedDefaultSettings() {
 	defaults := map[string]string{
-		"start_message": "Assalomu alaykum! Botga xush kelibsiz. 👋\n\nQuyidagi bo'limlardan foydalaning:",
+		"start_message": "🎉 Sokin Diyor qurilish kompaniyasining G'ijduvonliklar uchun\nmaxsus tanlov botiga xush kelibsiz!\n\n📣 Onlayn taqdimot kanaliga qo'shiling va quyidagi super\nsovg'alarni yutib olish imkoniga ega bo'ling:\n\n🟢 2 ta Muzlatkich\n🟢 3 ta Kir yuvish mashinasi\n🟢 5 ta Televizor\n🟢 5 ta Changyutgich\n🟢 5 ta Mikroto'lqinli pech\nva yana ko'plab qimmatbaho sovg'alar!\n\nQani, boshladik! 👇\n\n1️⃣ Avvalo kanalga qo'shiling.\n2️⃣ So'ng <b>Obuna bo'ldim</b> ✅ tugmasini bosing.",
 		"start_video_file_id": "",
 		"aksiya_text": "⚡️ Hozircha faol aksiyalar yo'q. Kuzatib boring!",
 		"referral_ad_text": "🚀 Do'stingizni taklif qiling!\n\n🎁 Quyidagi tugma orqali botga qo'shiling va bonuslar yuting!\n\n👇 Pastdagi tugmani bosing:",

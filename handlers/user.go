@@ -24,13 +24,32 @@ func HandleUserMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, botUsername 
 	}
 
 	switch msg.Text {
-	case "📊 Reyting":
+	case "Top taklif qilganlar":
 		handleRating(bot, chatID)
-	case "🔗 Referal havolam":
+	case "Taklif havolam":
 		handleReferral(bot, chatID, userID, botUsername)
-	case "🎁 Aksiya":
-		handleAksiya(bot, chatID)
+	case "Qo`llanma":
+		handleQullanma(bot, chatID)
+	case "Ballarim":
+		handleBallarim(bot, chatID, userID)
 	}
+}
+
+func handleQullanma(bot *tgbotapi.BotAPI, chatID int64) {
+	qullanmaText, _ := db.GetSetting("qullanma_text")
+	if qullanmaText == "" {
+		qullanmaText = "📄 <b>Qo'llanma</b>\nSizga berilgan referal havoladan nusxa oling va do'stlaringizga yuboring."
+	}
+	send(bot, chatID, qullanmaText)
+}
+
+func handleBallarim(bot *tgbotapi.BotAPI, chatID, userID int64) {
+	user, err := db.GetUser(userID)
+	count := 0
+	if err == nil && user != nil {
+		count = user.ReferralCount
+	}
+	send(bot, chatID, fmt.Sprintf("👥 Siz chaqirgan foydalanuvchilar: <b>%d ta</b>", count))
 }
 
 // handleRating shows the top 10 referrers leaderboard
@@ -103,15 +122,36 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 		finalMessage = adText + statsText
 	}
 
-	msg := tgbotapi.NewMessage(chatID, finalMessage)
-	msg.ParseMode = "HTML"
-	// Inline URL button — clicking opens bot directly with referral deep-link
-	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+	photoID, _ := db.GetSetting("referral_ad_photo_id")
+
+	var sentMsg tgbotapi.Message
+	var errSend error
+
+	inlineKb := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("🤖 Botga o'tish", link),
+			tgbotapi.NewInlineKeyboardButtonURL("Qo'shilish ↗️", link),
 		),
 	)
-	bot.Send(msg)
+
+	if photoID != "" {
+		photoMsg := tgbotapi.NewPhoto(chatID, tgbotapi.FileID(photoID))
+		photoMsg.Caption = finalMessage
+		photoMsg.ParseMode = "HTML"
+		photoMsg.ReplyMarkup = inlineKb
+		sentMsg, errSend = bot.Send(photoMsg)
+	} else {
+		txtMsg := tgbotapi.NewMessage(chatID, finalMessage)
+		txtMsg.ParseMode = "HTML"
+		txtMsg.ReplyMarkup = inlineKb
+		sentMsg, errSend = bot.Send(txtMsg)
+	}
+
+	if errSend == nil {
+		replyText := "👆 👆 👆 Bu postda sizning shaxsiy linkingiz joylashgan\n\nYuqoridagi postni yaqinlaringizga tarqating, ular sizning linkingizni bosib botga start berishi va telegram kanalga obuna bo'lishi kerak."
+		replyMsg := tgbotapi.NewMessage(chatID, replyText)
+		replyMsg.ReplyToMessageID = sentMsg.MessageID
+		bot.Send(replyMsg)
+	}
 }
 
 // handleAksiya shows the current promotion text

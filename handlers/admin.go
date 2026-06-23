@@ -206,7 +206,7 @@ func handleAdminReferralAdEdit(bot *tgbotapi.BotAPI, chatID int64) {
 	)
 	msg := tgbotapi.NewMessage(chatID,
 		fmt.Sprintf("📣 <b>Joriy reklama matni:</b>\n\n%s\n\n"+
-			"✏️ Yangi reklama matnini yuboring.\n"+
+			"✏️ Yangi reklama matnini yuboring. (Yoki rasm bilan birga caption tarzida yuboring)\n"+
 			"<i>Siz matn ichida quyidagi maxsus so'zlardan foydalanishingiz mumkin:</i>\n"+
 			"<b>{link}</b> — foydalanuvchining shaxsiy referal havolasi\n"+
 			"<b>{count}</b> — foydalanuvchi taklif qilgan odamlar soni", cur),
@@ -345,11 +345,30 @@ func handleAdminState(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int6
 		HandleAdminPanel(bot, chatID)
 
 	case "await_referral_ad_text":
-		if err := db.SetSetting("referral_ad_text", text); err != nil {
-			send(bot, chatID, "❌ Saqlashda xatolik.")
+		adText := text
+		if len(msg.Photo) > 0 {
+			// Get highest quality photo
+			photo := msg.Photo[len(msg.Photo)-1]
+			db.SetSetting("referral_ad_photo_id", photo.FileID)
+			if msg.Caption != "" {
+				adText = msg.Caption
+			} else {
+				adText = "" // keep existing ad text maybe? No, let's use whatever they sent or empty string if just photo. Wait, if they just send photo, let's empty it if caption is empty.
+			}
 		} else {
-			send(bot, chatID, "✅ Reklama matni yangilandi! Endi foydalanuvchilar referal havolasini so'raganda yangi matn ko'rinadi.")
+			// Clear photo if they just sent text
+			db.SetSetting("referral_ad_photo_id", "")
 		}
+
+		if adText != "" || len(msg.Photo) > 0 {
+			if adText != "" {
+				db.SetSetting("referral_ad_text", adText)
+			}
+			send(bot, chatID, "✅ Reklama matni va rasm yangilandi!")
+		} else {
+			send(bot, chatID, "❌ Hech narsa kiritilmadi.")
+		}
+
 		adminState.Clear(chatID)
 		HandleAdminPanel(bot, chatID)
 

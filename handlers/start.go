@@ -181,11 +181,14 @@ func getMenuForUser(userID int64) tgbotapi.ReplyKeyboardMarkup {
 func userMenuKeyboard() tgbotapi.ReplyKeyboardMarkup {
 	return tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("📊 Reyting"),
-			tgbotapi.NewKeyboardButton("🔗 Referal havolam"),
+			tgbotapi.NewKeyboardButton("Taklif havolam"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("🎁 Aksiya"),
+			tgbotapi.NewKeyboardButton("Qo`llanma"),
+			tgbotapi.NewKeyboardButton("Ballarim"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("Top taklif qilganlar"),
 		),
 	)
 }
@@ -193,11 +196,16 @@ func userMenuKeyboard() tgbotapi.ReplyKeyboardMarkup {
 func adminMenuKeyboard() tgbotapi.ReplyKeyboardMarkup {
 	return tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("📊 Reyting"),
-			tgbotapi.NewKeyboardButton("🔗 Referal havolam"),
+			tgbotapi.NewKeyboardButton("Taklif havolam"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("🎁 Aksiya"),
+			tgbotapi.NewKeyboardButton("Qo`llanma"),
+			tgbotapi.NewKeyboardButton("Ballarim"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("Top taklif qilganlar"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("⚙️ Admin panel"),
 		),
 	)

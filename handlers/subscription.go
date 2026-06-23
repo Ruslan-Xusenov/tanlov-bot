@@ -66,10 +66,18 @@ func SendSubscriptionGate(bot *tgbotapi.BotAPI, chatID int64, missing []db.Chann
 		for i, ch := range missing {
 			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, ch.ChannelName))
 		}
-		sb.WriteString("\n✅ Obuna bo'lgach, <b>Obuna bo'ldim</b> tugmasini bosing.")
+		sb.WriteString("\n✅ Obuna bo'lgach, <b>Obuna bo'ldim ✅</b> tugmasini bosing.")
 	}
 
-	// Build inline buttons: one button per channel + check button
+	msg := tgbotapi.NewMessage(chatID, sb.String())
+	msg.ParseMode = "HTML"
+	kb := BuildSubscriptionKeyboard(missing)
+	msg.ReplyMarkup = kb
+	bot.Send(msg)
+}
+
+// BuildSubscriptionKeyboard creates the inline keyboard for mandatory channels
+func BuildSubscriptionKeyboard(missing []db.Channel) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	for _, ch := range missing {
 		url := ch.ChannelURL
@@ -81,13 +89,9 @@ func SendSubscriptionGate(bot *tgbotapi.BotAPI, chatID int64, missing []db.Chann
 		))
 	}
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Obuna bo'ldim", "check_sub"),
+		tgbotapi.NewInlineKeyboardButtonData("Obuna bo'ldim ✅", "check_sub"),
 	))
-
-	msg := tgbotapi.NewMessage(chatID, sb.String())
-	msg.ParseMode = "HTML"
-	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(rows...)
-	bot.Send(msg)
+	return tgbotapi.NewInlineKeyboardMarkup(rows...)
 }
 
 // RequireSubscription is a middleware helper. Returns true if user passed the gate.

@@ -63,13 +63,13 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 		log.Printf("[start] sub check error for user %d: %v", userID, err)
 	}
 	if !ok {
-		text, _ := db.GetSetting("start_message")
-		SendSubscriptionGate(bot, chatID, missing, text)
+		kb := BuildSubscriptionKeyboard(missing)
+		sendWelcome(bot, chatID, false, &kb)
 		return
 	}
 
 	// ── Send welcome ──
-	sendWelcome(bot, chatID, false)
+	sendWelcome(bot, chatID, false, nil)
 
 	// ── Complete Registration ──
 	CompleteRegistrationFlow(bot, chatID, userID, username, fullName, botUsername)
@@ -84,7 +84,7 @@ func formatUserIdentifier(username, fullName string) string {
 }
 
 // sendWelcome sends the configured start message (with optional video)
-func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, sendMenu bool) {
+func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, sendMenu bool, inlineKb *tgbotapi.InlineKeyboardMarkup) {
 	text, _ := db.GetSetting("start_message")
 	videoFileID, _ := db.GetSetting("start_video_file_id")
 
@@ -93,13 +93,16 @@ func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, sendMenu bool) {
 		video := tgbotapi.NewVideo(chatID, tgbotapi.FileID(videoFileID))
 		video.Caption = text
 		video.ParseMode = "HTML"
+		if inlineKb != nil {
+			video.ReplyMarkup = *inlineKb
+		}
 		if _, err := bot.Send(video); err != nil {
 			log.Printf("[start] failed to send video: %v", err)
 			// Fallback to text
-			sendTextWelcome(bot, chatID, text)
+			sendTextWelcome(bot, chatID, text, inlineKb)
 		}
 	} else {
-		sendTextWelcome(bot, chatID, text)
+		sendTextWelcome(bot, chatID, text, inlineKb)
 	}
 
 	if sendMenu {
@@ -144,9 +147,12 @@ func CompleteRegistrationFlow(bot *tgbotapi.BotAPI, chatID, userID int64, userna
 	bot.Send(qMsg)
 }
 
-func sendTextWelcome(bot *tgbotapi.BotAPI, chatID int64, text string) {
+func sendTextWelcome(bot *tgbotapi.BotAPI, chatID int64, text string, inlineKb *tgbotapi.InlineKeyboardMarkup) {
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = "HTML"
+	if inlineKb != nil {
+		msg.ReplyMarkup = *inlineKb
+	}
 	bot.Send(msg)
 }
 

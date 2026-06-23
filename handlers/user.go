@@ -24,15 +24,15 @@ func HandleUserMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, botUsername 
 	}
 
 	switch msg.Text {
-	case "Top taklif qilganlar":
+	case "🏆 Top taklif qilganlar":
 		handleRating(bot, chatID)
-	case "Taklif havolam":
+	case "🔗 Taklif havolam":
 		handleReferral(bot, chatID, userID, botUsername)
-	case "Aksiya haqida":
+	case "🎁 Aksiya haqida":
 		handleAksiya(bot, chatID)
-	case "Qo`llanma":
+	case "📘 Qo'llanma", "Qo`llanma": // Fallback for old buttons if any
 		handleQullanma(bot, chatID, nil)
-	case "Ballarim":
+	case "💎 Ballarim":
 		handleBallarim(bot, chatID, userID)
 	}
 }

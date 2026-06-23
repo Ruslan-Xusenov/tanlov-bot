@@ -35,7 +35,13 @@ func (r *Router) Route(update tgbotapi.Update) {
 			if ok {
 				// Subscription passed
 				r.Bot.Request(tgbotapi.NewDeleteMessage(chatID, cq.Message.MessageID))
-				CompleteRegistrationFlow(r.Bot, chatID, userID, cq.From.UserName, cq.From.FirstName+" "+cq.From.LastName, r.BotUsername)
+
+				user, err := db.GetUser(userID)
+				if err == nil && user != nil && user.Phone == "" {
+					SendPhoneRequest(r.Bot, chatID)
+				} else {
+					CompleteRegistrationFlow(r.Bot, chatID, userID, cq.From.UserName, cq.From.FirstName+" "+cq.From.LastName, r.BotUsername)
+				}
 			} else {
 				// Edit the existing message to refresh channel list
 				callback := tgbotapi.NewCallback(cq.ID, "⚠️ Hali ham obuna bo'lmadingiz!")
@@ -97,6 +103,56 @@ func (r *Router) Route(update tgbotapi.Update) {
 
 	isAdmin := db.IsAdmin(userID) || userID == r.SuperAdminID
 
+	// ── Handle Contact (Phone number sharing) ──
+	if msg.Contact != nil {
+		if msg.Contact.UserID == userID {
+			phone := msg.Contact.PhoneNumber
+			if !(strings.HasPrefix(phone, "998") || strings.HasPrefix(phone, "+998")) {
+				send(r.Bot, chatID, "⚠️ Iltimos, faqat O'zbekiston (+998) raqamidan ro'yxatdan o'ting.")
+				return
+			}
+
+			if err := db.UpdateUserPhone(userID, phone); err != nil {
+				log.Printf("[router] failed to save phone: %v", err)
+			}
+			
+			removeKb := tgbotapi.NewRemoveKeyboard(true)
+			rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!")
+			rmMsg.ReplyMarkup = removeKb
+			r.Bot.Send(rmMsg)
+
+			CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
+		} else {
+			send(r.Bot, chatID, "⚠️ Iltimos, o'zingizning raqamingizni yuboring.")
+		}
+		return
+	}
+
+	// ── Handle Manual Phone Text ──
+	user, err := db.GetUser(userID)
+	if err == nil && user != nil && user.Phone == "" {
+		if msg.Text != "" && !msg.IsCommand() {
+			cleaned := strings.ReplaceAll(msg.Text, " ", "")
+			cleaned = strings.ReplaceAll(cleaned, "+", "")
+			if len(cleaned) >= 9 && len(cleaned) <= 12 && isNumeric(cleaned) {
+				if err := db.UpdateUserPhone(userID, cleaned); err != nil {
+					log.Printf("[router] failed to save phone text: %v", err)
+				}
+				removeKb := tgbotapi.NewRemoveKeyboard(true)
+				rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!")
+				rmMsg.ReplyMarkup = removeKb
+				r.Bot.Send(rmMsg)
+
+				CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
+				return
+			}
+		}
+		if !msg.IsCommand() {
+			send(r.Bot, chatID, "⚠️ Iltimos, avval telefon raqamingizni yuboring.")
+			return
+		}
+	}
+
 	// /start command (handled before subscription gate)
 	if msg.IsCommand() && msg.Command() == "start" {
 		HandleStart(r.Bot, msg, r.SuperAdminID, r.BotUsername)
@@ -142,4 +198,13 @@ func (r *Router) Route(update tgbotapi.Update) {
 	// All other messages — route to user handlers
 	// Admin can also access user features
 	HandleUserMessage(r.Bot, msg, r.BotUsername)
+}
+
+func isNumeric(s string) bool {
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

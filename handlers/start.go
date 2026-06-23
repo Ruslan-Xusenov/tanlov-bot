@@ -8,6 +8,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"tanlov-bot/db"
+	"tanlov-bot/keyboards"
 )
 
 // HandleStart processes the /start command with optional referral parameter
@@ -68,11 +69,33 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 		return
 	}
 
-	// ── Send welcome ──
-	sendWelcome(bot, chatID, false, nil)
+	// ── Check Phone Number ──
+	user, err := db.GetUser(userID)
+	if err == nil && user != nil && user.Phone == "" {
+		SendPhoneRequest(bot, chatID)
+		return
+	}
 
-	// ── Complete Registration ──
+	// ── Send welcome & Complete Registration ──
+	sendWelcome(bot, chatID, false, nil)
 	CompleteRegistrationFlow(bot, chatID, userID, username, fullName, botUsername)
+}
+
+// SendPhoneRequest sends the prizes text (qullanma) and the phone request
+func SendPhoneRequest(bot *tgbotapi.BotAPI, chatID int64) {
+	// 1. Send Qullanma (Prizes) text
+	qullanmaText, _ := db.GetSetting("qullanma_text")
+	if qullanmaText != "" {
+		qMsg := tgbotapi.NewMessage(chatID, qullanmaText)
+		qMsg.ParseMode = "HTML"
+		bot.Send(qMsg)
+	}
+
+	// 2. Send Phone Request
+	phoneMsg := tgbotapi.NewMessage(chatID, "✅ Juda yaxshi!\n\nSizga bog'lana olishimiz uchun pastdagi \"☎️ Raqamni ulashish\" tugmasini bosib telefon raqamingizni yuboring yoki 901112233 kabi yozib yuboring.")
+	phoneMsg.ReplyMarkup = keyboards.RequestContactKeyboard()
+	phoneMsg.ParseMode = "HTML"
+	bot.Send(phoneMsg)
 }
 
 // formatUserIdentifier helper
@@ -136,15 +159,6 @@ func CompleteRegistrationFlow(bot *tgbotapi.BotAPI, chatID, userID int64, userna
 
 	// 3. Send Referral Link
 	handleReferral(bot, chatID, userID, botUsername)
-
-	// 4. Send Qullanma
-	qullanmaText, _ := db.GetSetting("qullanma_text")
-	if qullanmaText == "" {
-		qullanmaText = "📄 <b>Qo'llanma</b>\nSizga berilgan referal havoladan nusxa oling va do'stlaringizga yuboring."
-	}
-	qMsg := tgbotapi.NewMessage(chatID, qullanmaText)
-	qMsg.ParseMode = "HTML"
-	bot.Send(qMsg)
 }
 
 func sendTextWelcome(bot *tgbotapi.BotAPI, chatID int64, text string, inlineKb *tgbotapi.InlineKeyboardMarkup) {

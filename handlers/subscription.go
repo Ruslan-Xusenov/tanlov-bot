@@ -77,21 +77,21 @@ func SendSubscriptionGate(bot *tgbotapi.BotAPI, chatID int64, missing []db.Chann
 }
 
 // BuildSubscriptionKeyboard creates the inline keyboard for mandatory channels
-func BuildSubscriptionKeyboard(missing []db.Channel) tgbotapi.InlineKeyboardMarkup {
-	var rows [][]tgbotapi.InlineKeyboardButton
+func BuildSubscriptionKeyboard(missing []db.Channel) keyboards.ExtendedInlineKeyboardMarkup {
+	var rows [][]keyboards.ExtendedInlineKeyboardButton
 	for _, ch := range missing {
 		url := ch.ChannelURL
 		if url == "" {
 			url = "https://t.me/" + strings.TrimPrefix(ch.ChannelID, "@")
 		}
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL(ch.ChannelName, url),
+		rows = append(rows, keyboards.NewExtendedInlineKeyboardRow(
+			keyboards.NewExtendedInlineKeyboardButtonURL(ch.ChannelName, url, ""), // Bu yerga kanal emoji ID sini qo'yish mumkin
 		))
 	}
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Obuna bo'ldim ✅", "check_sub"),
+	rows = append(rows, keyboards.NewExtendedInlineKeyboardRow(
+		keyboards.NewExtendedInlineKeyboardButtonData("Obuna bo'ldim ✅", "check_sub", ""), // Bu yerga "tasdiqlash" jonli emoji ID sini qo'yasiz
 	))
-	return tgbotapi.NewInlineKeyboardMarkup(rows...)
+	return keyboards.NewExtendedInlineKeyboardMarkup(rows...)
 }
 
 // RequireSubscription is a middleware helper. Returns true if user passed the gate.

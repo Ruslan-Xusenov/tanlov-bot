@@ -53,30 +53,59 @@ func handleQullanma(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 
 func handleBallarim(bot *tgbotapi.BotAPI, chatID, userID int64) {
 	user, err := db.GetUser(userID)
-	count := 0
+	daily := 0
+	total := 0
 	if err == nil && user != nil {
-		count = user.ReferralCount
+		daily = user.ReferralCount
+		total = user.TotalReferralCount
 	}
-	send(bot, chatID, fmt.Sprintf("👥 Siz chaqirgan foydalanuvchilar: <b>%d ta</b>", count))
+	send(bot, chatID, fmt.Sprintf("👥 Siz chaqirgan foydalanuvchilar:\n\n📅 Bugun: <b>%d ta</b>\n🌐 Jami: <b>%d ta</b>", daily, total))
 }
 
-// handleRating shows the top 10 referrers leaderboard
+// handleRating asks the user to choose between daily and total leaderboard
 func handleRating(bot *tgbotapi.BotAPI, chatID int64) {
-	users, err := db.GetTopReferrers(10)
+	msg := tgbotapi.NewMessage(chatID, "📊 <b>Reyting turini tanlang:</b>")
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📅 Kunlik reyting", "rating_daily"),
+			tgbotapi.NewInlineKeyboardButtonData("🌐 Umumiy reyting", "rating_total"),
+		),
+	)
+	bot.Send(msg)
+}
+
+func handleRatingSelection(bot *tgbotapi.BotAPI, chatID int64, userID int64, isDaily bool, isAdmin bool) {
+	var users []db.User
+	var err error
+
+	limit := 5 // We show top 5 as requested
+
+	if isDaily {
+		users, err = db.GetTopReferrersDaily(limit)
+	} else {
+		users, err = db.GetTopReferrersTotal(limit)
+	}
+
 	if err != nil {
 		log.Printf("[user] failed to get top referrers: %v", err)
 		send(bot, chatID, "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.")
 		return
 	}
 
+	title := "📅 <b>Kunlik Reyting (Top 5):</b>\n\n"
+	if !isDaily {
+		title = "🌐 <b>Umumiy Reyting (Top 5):</b>\n\n"
+	}
+
 	if len(users) == 0 {
-		send(bot, chatID, "📊 <b>Reyting</b>\n\nHali hech kim ro'yxatdan o'tmagan.")
+		send(bot, chatID, title+"Hali hech kim ro'yxatdan o'tmagan.")
 		return
 	}
 
 	medals := []string{"🥇", "🥈", "🥉"}
 	var sb strings.Builder
-	sb.WriteString("🏆 <b>Eng ko'p referal chaqirganlar:</b>\n\n")
+	sb.WriteString(title)
 
 	for i, u := range users {
 		medal := fmt.Sprintf("%d.", i+1)
@@ -92,12 +121,44 @@ func handleRating(bot *tgbotapi.BotAPI, chatID int64) {
 			name = fmt.Sprintf("User#%d", u.ID)
 		}
 
-		sb.WriteString(fmt.Sprintf("%s <b>%s</b> — %d ta referal\n", medal, name, u.ReferralCount))
+		score := u.ReferralCount
+		if !isDaily {
+			score = u.TotalReferralCount
+		}
+
+		if isAdmin {
+			sb.WriteString(fmt.Sprintf("%s <b>%s</b> — %d ta (Jami: %d ta)\n", medal, name, score, u.TotalReferralCount))
+		} else {
+			sb.WriteString(fmt.Sprintf("%s <b>%s</b> — %d ta\n", medal, name, score))
+		}
+	}
+
+	// Motivational message logic
+	if !isAdmin {
+		rank, fifthScore, err := db.GetUserRank(userID, isDaily)
+		if err == nil && rank > limit {
+			missing := fifthScore - getScore(userID, isDaily) + 1 // +1 to overtake or tie
+			if missing <= 0 {
+				missing = 1 // At least 1 to be safe
+			}
+			sb.WriteString(fmt.Sprintf("\n💡 <i>Sizning hozirgi o'rningiz: <b>%d-o'rin</b>.\nTop %d reytingga kirishingiz uchun yana <b>%d ta</b> do'stingizni chaqirishingiz kerak! Olg'a!</i>", rank, limit, missing))
+		}
 	}
 
 	msg := tgbotapi.NewMessage(chatID, sb.String())
 	msg.ParseMode = "HTML"
 	bot.Send(msg)
+}
+
+func getScore(userID int64, isDaily bool) int {
+	user, err := db.GetUser(userID)
+	if err != nil || user == nil {
+		return 0
+	}
+	if isDaily {
+		return user.ReferralCount
+	}
+	return user.TotalReferralCount
 }
 
 // handleReferral shows ad text + inline button with deep-link to the bot
@@ -111,7 +172,7 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 	link := utils.BuildReferralLink(botUsername, userID)
 	count := 0
 	if user != nil {
-		count = user.ReferralCount
+		count = user.TotalReferralCount
 	}
 
 	// Get admin-configured ad text

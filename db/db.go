@@ -88,12 +88,16 @@ func migrate() {
 			phone        TEXT    DEFAULT '',
 			referred_by  BIGINT DEFAULT 0,
 			referral_count INTEGER DEFAULT 0,
+			total_referral_count INTEGER DEFAULT 0,
 			referral_status INTEGER DEFAULT 0,
 			is_admin     INTEGER DEFAULT 0,
 			is_active    INTEGER DEFAULT 1,
 			last_active  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
+
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_referral_count INTEGER DEFAULT 0`,
+		`UPDATE users SET total_referral_count = referral_count WHERE total_referral_count = 0 AND referral_count > 0`,
 
 		`CREATE TABLE IF NOT EXISTS channels (
 			id           SERIAL PRIMARY KEY,

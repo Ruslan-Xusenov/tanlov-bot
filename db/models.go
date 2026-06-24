@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 )
 
@@ -12,6 +13,7 @@ type User struct {
 	Phone         string
 	ReferredBy    int64
 	ReferralCount int
+	TotalReferralCount int
 	ReferralStatus int
 	IsAdmin       bool
 	IsActive      bool
@@ -20,18 +22,18 @@ type User struct {
 }
 
 func GetUser(id int64) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, referral_status, is_admin, is_active, last_active, created_at FROM users WHERE id = $1`, id)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at FROM users WHERE id = $1`, id)
 	return scanUser(row)
 }
 
 func GetUserByUsername(username string) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, referral_status, is_admin, is_active, last_active, created_at FROM users WHERE LOWER(username) = LOWER($1)`, username)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at FROM users WHERE LOWER(username) = LOWER($1)`, username)
 	return scanUser(row)
 }
 
 func scanUser(row *sql.Row) (*User, error) {
 	u := &User{}
-	err := row.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.ReferralStatus,
+	err := row.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
 		&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -85,7 +87,7 @@ func ApproveReferral(userID int64) error {
 		return err
 	}
 	
-	_, err = tx.Exec(`UPDATE users SET referral_count = referral_count + 1 WHERE id = $1`, referredBy)
+	_, err = tx.Exec(`UPDATE users SET referral_count = referral_count + 1, total_referral_count = total_referral_count + 1 WHERE id = $1`, referredBy)
 	if err != nil { tx.Rollback(); return err }
 	
 	return tx.Commit()
@@ -104,7 +106,7 @@ func RevokeReferral(userID int64) error {
 	_, err = tx.Exec(`UPDATE users SET referral_status = -1 WHERE id = $1`, userID)
 	if err != nil { tx.Rollback(); return err }
 	
-	_, err = tx.Exec(`UPDATE users SET referral_count = referral_count - 1 WHERE id = $1`, referredBy)
+	_, err = tx.Exec(`UPDATE users SET referral_count = referral_count - 1, total_referral_count = total_referral_count - 1 WHERE id = $1`, referredBy)
 	if err != nil { tx.Rollback(); return err }
 	
 	return tx.Commit()
@@ -126,11 +128,11 @@ func UserExists(id int64) (bool, error) {
 	return count > 0, err
 }
 
-func GetTopReferrers(limit int) ([]User, error) {
+func GetTopReferrersDaily(limit int) ([]User, error) {
 	rows, err := DB.Query(`
-		SELECT id, username, full_name, phone, referred_by, referral_count, referral_status, is_admin, is_active, last_active, created_at
+		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
 		FROM users
-		ORDER BY referral_count DESC
+		ORDER BY referral_count DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC
 		LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
@@ -139,7 +141,7 @@ func GetTopReferrers(limit int) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		u := User{}
-		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.ReferralStatus,
+		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
 			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
 		if err != nil {
 			return nil, err
@@ -147,6 +149,93 @@ func GetTopReferrers(limit int) ([]User, error) {
 		users = append(users, u)
 	}
 	return users, nil
+}
+
+func GetTopReferrersTotal(limit int) ([]User, error) {
+	rows, err := DB.Query(`
+		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
+		FROM users
+		ORDER BY total_referral_count DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var users []User
+	for rows.Next() {
+		u := User{}
+		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
+			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err error) {
+	col := "referral_count"
+	if !isDaily {
+		col = "total_referral_count"
+	}
+
+	// Get 5th place score
+	queryFifth := fmt.Sprintf(`SELECT %s FROM users ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC LIMIT 1 OFFSET 4`, col, col)
+	err = DB.QueryRow(queryFifth).Scan(&fifthPlaceScore)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fifthPlaceScore = 0 // Less than 5 users
+			err = nil
+		} else {
+			return 0, 0, err
+		}
+	}
+
+	// Get user rank
+	// Rank is defined as: number of users strictly greater than this user, plus 1.
+	// We also need to account for ties and alphabetical sorting.
+	// A simpler way is to use window functions.
+	queryRank := fmt.Sprintf(`
+		WITH RankedUsers AS (
+			SELECT id, RANK() OVER(ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC) as rank
+			FROM users
+		)
+		SELECT rank FROM RankedUsers WHERE id = $1
+	`, col)
+	err = DB.QueryRow(queryRank, userID).Scan(&rank)
+	return rank, fifthPlaceScore, err
+}
+
+func ProcessDailyReward() (*User, error) {
+	// Find winner
+	winner := &User{}
+	row := DB.QueryRow(`
+		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
+		FROM users
+		WHERE referral_count > 0 AND is_active = 1
+		ORDER BY referral_count DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC
+		LIMIT 1
+	`)
+	
+	err := row.Scan(&winner.ID, &winner.Username, &winner.FullName, &winner.Phone, &winner.ReferredBy, &winner.ReferralCount, &winner.TotalReferralCount, &winner.ReferralStatus,
+		&winner.IsAdmin, &winner.IsActive, &winner.LastActive, &winner.CreatedAt)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			winner = nil // No winner today
+		} else {
+			return nil, err
+		}
+	}
+
+	// Reset daily counts for ALL users
+	_, err = DB.Exec(`UPDATE users SET referral_count = 0`)
+	if err != nil {
+		return nil, err
+	}
+
+	return winner, nil
 }
 
 func DeactivateUser(id int64) error {
@@ -211,18 +300,20 @@ func RemoveAdmin(userID int64) error {
 
 func GetAllAdmins() ([]User, error) {
 	rows, err := DB.Query(`
-		SELECT u.id, u.username, u.full_name, u.phone, u.referred_by, u.referral_count, u.referral_status, u.is_admin, u.is_active, u.last_active, u.created_at
+		SELECT u.id, u.username, u.full_name, u.phone, u.referred_by, u.referral_count, u.total_referral_count, u.referral_status, u.is_admin, u.is_active, u.last_active, u.created_at
 		FROM admins a
 		JOIN users u ON u.id = a.user_id
-		ORDER BY a.added_at`)
+		ORDER BY a.added_at
+	`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	var admins []User
 	for rows.Next() {
 		u := User{}
-		rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.ReferralStatus,
+		rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
 			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
 		admins = append(admins, u)
 	}

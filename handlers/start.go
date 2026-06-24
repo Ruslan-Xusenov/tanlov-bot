@@ -66,7 +66,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 	}
 	if !ok {
 		kb := BuildSubscriptionKeyboard(missing)
-		sendWelcome(bot, chatID, nil, &kb)
+		sendWelcome(bot, chatID, kb)
 		return
 	}
 
@@ -79,7 +79,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 
 	// ── Send welcome & Complete Registration ──
 	menu := getMenuForUser(userID)
-	sendWelcome(bot, chatID, &menu, nil)
+	sendWelcome(bot, chatID, menu)
 	CompleteRegistrationFlow(bot, chatID, userID, username, fullName, botUsername)
 }
 
@@ -109,16 +109,9 @@ func formatUserIdentifier(username, fullName string) string {
 }
 
 // sendWelcome sends the configured start message (with optional video)
-func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, replyKb *tgbotapi.ReplyKeyboardMarkup, inlineKb *tgbotapi.InlineKeyboardMarkup) {
+func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 	text, _ := db.GetSetting("start_message")
 	videoFileID, _ := db.GetSetting("start_video_file_id")
-
-	var markup interface{}
-	if inlineKb != nil {
-		markup = *inlineKb
-	} else if replyKb != nil {
-		markup = *replyKb
-	}
 
 	if videoFileID != "" {
 		// Send video first

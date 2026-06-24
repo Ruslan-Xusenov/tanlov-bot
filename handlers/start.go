@@ -79,6 +79,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 	// ── Check Phone Number ──
 	user, err := db.GetUser(userID)
 	if err == nil && user != nil && user.Phone == "" {
+		sendWelcome(bot, chatID, nil)
 		SendPhoneRequest(bot, chatID)
 		return
 	}

@@ -3,22 +3,28 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"sync"
 	"time"
 )
 
+var (
+	touchCache = make(map[int64]time.Time)
+	touchMu    sync.Mutex
+)
+
 type User struct {
-	ID            int64
-	Username      string
-	FullName      string
-	Phone         string
-	ReferredBy    int64
-	ReferralCount int
+	ID                 int64
+	Username           string
+	FullName           string
+	Phone              string
+	ReferredBy         int64
+	ReferralCount      int
 	TotalReferralCount int
-	ReferralStatus int
-	IsAdmin       bool
-	IsActive      bool
-	LastActive    time.Time
-	CreatedAt     time.Time
+	ReferralStatus     int
+	IsAdmin            bool
+	IsActive           bool
+	LastActive         time.Time
+	CreatedAt          time.Time
 }
 
 func GetUser(id int64) (*User, error) {
@@ -69,7 +75,9 @@ func CreateUserWithReferral(id int64, username, fullName string, referredBy int6
 
 func ApproveReferral(userID int64) error {
 	tx, err := DB.Begin()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	var referredBy int64
 	err = tx.QueryRow(`SELECT referred_by FROM users WHERE id = $1 AND referral_status = 0`, userID).Scan(&referredBy)
@@ -77,19 +85,25 @@ func ApproveReferral(userID int64) error {
 		tx.Rollback()
 		return err
 	}
-	
+
 	res, err := tx.Exec(`UPDATE users SET referral_status = 1 WHERE id = $1 AND referral_status = 0`, userID)
-	if err != nil { tx.Rollback(); return err }
-	
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	rows, _ := res.RowsAffected()
 	if rows == 0 {
 		tx.Rollback()
 		return err
 	}
-	
+
 	_, err = tx.Exec(`UPDATE users SET referral_count = referral_count + 1, total_referral_count = total_referral_count + 1 WHERE id = $1`, referredBy)
-	if err != nil { tx.Rollback(); return err }
-	
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -99,16 +113,24 @@ func RevokeReferral(userID int64) error {
 	if err != nil || referredBy == 0 {
 		return err
 	}
-	
+
 	tx, err := DB.Begin()
-	if err != nil { return err }
-	
+	if err != nil {
+		return err
+	}
+
 	_, err = tx.Exec(`UPDATE users SET referral_status = -1 WHERE id = $1`, userID)
-	if err != nil { tx.Rollback(); return err }
-	
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	_, err = tx.Exec(`UPDATE users SET referral_count = referral_count - 1, total_referral_count = total_referral_count - 1 WHERE id = $1`, referredBy)
-	if err != nil { tx.Rollback(); return err }
-	
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -118,8 +140,24 @@ func UpdateUserPhone(id int64, phone string) error {
 }
 
 func TouchUserActivity(id int64) error {
+	touchMu.Lock()
+	lastTouch, ok := touchCache[id]
+	now := time.Now()
+	if ok && now.Sub(lastTouch) < 5*time.Minute {
+		touchMu.Unlock()
+		return nil
+	}
+	touchCache[id] = now
+	touchMu.Unlock()
+
 	_, err := DB.Exec(`UPDATE users SET last_active = CURRENT_TIMESTAMP, is_active = 1 WHERE id = $1`, id)
 	return err
+}
+
+func CheckPhoneExists(phone string) (bool, error) {
+	var count int
+	err := DB.QueryRow(`SELECT COUNT(*) FROM users WHERE phone = $1`, phone).Scan(&count)
+	return count > 0, err
 }
 
 func UserExists(id int64) (bool, error) {
@@ -241,10 +279,10 @@ func ProcessDailyReward() (*User, error) {
 		ORDER BY referral_count DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC
 		LIMIT 1
 	`)
-	
+
 	err := row.Scan(&winner.ID, &winner.Username, &winner.FullName, &winner.Phone, &winner.ReferredBy, &winner.ReferralCount, &winner.TotalReferralCount, &winner.ReferralStatus,
 		&winner.IsAdmin, &winner.IsActive, &winner.LastActive, &winner.CreatedAt)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			winner = nil // No winner today
@@ -412,4 +450,11 @@ func SetSetting(key, value string) error {
 	_, err := DB.Exec(`INSERT INTO bot_settings (key, value) VALUES ($1, $2)
 		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
 	return err
+}
+
+func GetBotStats() (newUsers, activeUsers, totalUsers int) {
+	DB.QueryRow(`SELECT COUNT(*) FROM users WHERE created_at >= CURRENT_DATE`).Scan(&newUsers)
+	DB.QueryRow(`SELECT COUNT(*) FROM users WHERE last_active >= NOW() - INTERVAL '24 hours'`).Scan(&activeUsers)
+	DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&totalUsers)
+	return
 }

@@ -5,9 +5,13 @@ import (
 
 	"fmt"
 	"strings"
+	"sync"
+	"time"
+
+	"tanlov-bot/db"
+	"tanlov-bot/monitor"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"tanlov-bot/db"
 )
 
 // Router holds shared state needed across all handlers
@@ -15,6 +19,40 @@ type Router struct {
 	Bot          *tgbotapi.BotAPI
 	SuperAdminID int64
 	BotUsername  string
+}
+
+var (
+	spamCache   = make(map[int64][]time.Time)
+	spamMu      sync.Mutex
+	alertedSpam = make(map[int64]time.Time)
+)
+
+func isSpamming(userID int64) bool {
+	spamMu.Lock()
+	defer spamMu.Unlock()
+
+	now := time.Now()
+	times := spamCache[userID]
+
+	valid := make([]time.Time, 0)
+	for _, t := range times {
+		if now.Sub(t) < 3*time.Second {
+			valid = append(valid, t)
+		}
+	}
+	valid = append(valid, now)
+	spamCache[userID] = valid
+
+	if len(valid) > 10 {
+		// Alert only once per hour
+		lastAlert, ok := alertedSpam[userID]
+		if !ok || now.Sub(lastAlert) > time.Hour {
+			alertedSpam[userID] = now
+			return true // triggers alert in caller
+		}
+		return false // silently drop
+	}
+	return false
 }
 
 // Route dispatches an incoming update to the correct handler
@@ -100,6 +138,11 @@ func (r *Router) Route(update tgbotapi.Update) {
 	userID := msg.From.ID
 	chatID := msg.Chat.ID
 
+	if isSpamming(userID) {
+		monitor.SpamAlert(userID, msg.From.UserName)
+		return // block request
+	}
+
 	db.TouchUserActivity(userID)
 
 	isAdmin := db.IsAdmin(userID) || userID == r.SuperAdminID
@@ -113,6 +156,13 @@ func (r *Router) Route(update tgbotapi.Update) {
 				return
 			}
 
+			// Check if phone already registered
+			exists, _ := db.CheckPhoneExists(phone)
+			if exists {
+				send(r.Bot, chatID, "❌ Bu telefon raqami orqali allaqachon ro'yxatdan o'tilgan. Bitta raqamdan faqat bir marta foydalanish mumkin.")
+				return
+			}
+
 			if err := db.UpdateUserPhone(userID, phone); err != nil {
 				log.Printf("[router] failed to save phone: %v", err)
 			}
@@ -122,30 +172,16 @@ func (r *Router) Route(update tgbotapi.Update) {
 
 			CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
 		} else {
-			send(r.Bot, chatID, "⚠️ Iltimos, o'zingizning raqamingizni yuboring.")
+			send(r.Bot, chatID, "⚠️ Iltimos, o'zingizning raqamingizni yuboring. Boshqa profil raqami qabul qilinmaydi.")
 		}
 		return
 	}
 
-	// ── Handle Manual Phone Text ──
+	// ── Phone Check Gate (Strictly require contact) ──
 	user, err := db.GetUser(userID)
 	if err == nil && user != nil && user.Phone == "" {
-		if msg.Text != "" && !msg.IsCommand() {
-			cleaned := strings.ReplaceAll(msg.Text, " ", "")
-			cleaned = strings.ReplaceAll(cleaned, "+", "")
-			if len(cleaned) >= 9 && len(cleaned) <= 12 && isNumeric(cleaned) {
-				if err := db.UpdateUserPhone(userID, cleaned); err != nil {
-					log.Printf("[router] failed to save phone text: %v", err)
-				}
-				rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!")
-				r.Bot.Send(rmMsg)
-
-				CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
-				return
-			}
-		}
 		if !msg.IsCommand() {
-			send(r.Bot, chatID, "⚠️ Iltimos, avval telefon raqamingizni yuboring.")
+			send(r.Bot, chatID, "⚠️ Iltimos, ro'yxatdan o'tish uchun \"☎️ Raqamni ulashish\" tugmasini bosing.")
 			return
 		}
 	}

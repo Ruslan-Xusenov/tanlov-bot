@@ -9,6 +9,7 @@ import (
 	"tanlov-bot/config"
 	"tanlov-bot/db"
 	"tanlov-bot/handlers"
+	"tanlov-bot/monitor"
 )
 
 func main() {
@@ -32,6 +33,7 @@ func main() {
 	}
 
 	go runDailyRewardJob(bot)
+	go runDailyReportJob()
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -44,7 +46,9 @@ func main() {
 		go func(u tgbotapi.Update) {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("[panic] recovered: %v", r)
+					errMsg := fmt.Sprintf("Panic yuz berdi: %v", r)
+					log.Printf("[panic] %s", errMsg)
+					monitor.Alert(errMsg)
 				}
 			}()
 			router.Route(u)
@@ -91,5 +95,29 @@ func runDailyRewardJob(bot *tgbotapi.BotAPI) {
 		} else {
 			log.Println("[daily_job] No winner today (no referrals made).")
 		}
+	}
+}
+
+func runDailyReportJob() {
+	loc, err := time.LoadLocation("Asia/Tashkent")
+	if err != nil {
+		loc = time.Local
+	}
+
+	for {
+		now := time.Now().In(loc)
+		
+		// Target 10:00 AM
+		target := time.Date(now.Year(), now.Month(), now.Day(), 10, 0, 0, 0, loc)
+		if now.After(target) {
+			// If it's already past 10:00 AM today, schedule for tomorrow
+			target = target.AddDate(0, 0, 1)
+		}
+		
+		duration := target.Sub(now)
+		time.Sleep(duration)
+		
+		newU, activeU, totalU := db.GetBotStats()
+		monitor.DailyReport(newU, activeU, totalU)
 	}
 }

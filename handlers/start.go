@@ -31,6 +31,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 			if parsed == userID {
 				msgWarn := tgbotapi.NewMessage(chatID, "❗️ O'zingizga ulashib bo'lmaydi")
 				bot.Send(msgWarn)
+				return
 			} else {
 				referrerID = parsed
 			}

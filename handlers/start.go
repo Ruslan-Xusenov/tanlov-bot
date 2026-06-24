@@ -27,8 +27,13 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 			idStr = strings.TrimPrefix(arg, "ref_")
 		}
 		parsed, err := strconv.ParseInt(idStr, 10, 64)
-		if err == nil && parsed != userID {
-			referrerID = parsed
+		if err == nil {
+			if parsed == userID {
+				msgWarn := tgbotapi.NewMessage(chatID, "❗️ O'zingizga ulashib bo'lmaydi")
+				bot.Send(msgWarn)
+			} else {
+				referrerID = parsed
+			}
 		}
 	}
 

@@ -183,7 +183,10 @@ func userMenuKeyboard() tgbotapi.ReplyKeyboardMarkup {
 			tgbotapi.NewKeyboardButton("💎 Ballarim"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("🏆 Top taklif qilganlar"),
+			tgbotapi.NewKeyboardButton("📅 Kunlik reyting"),
+			tgbotapi.NewKeyboardButton("🌐 Umumiy reyting"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("🎁 Aksiya haqida"),
 		),
 	)
@@ -199,7 +202,10 @@ func adminMenuKeyboard() tgbotapi.ReplyKeyboardMarkup {
 			tgbotapi.NewKeyboardButton("💎 Ballarim"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("🏆 Top taklif qilganlar"),
+			tgbotapi.NewKeyboardButton("📅 Kunlik reyting"),
+			tgbotapi.NewKeyboardButton("🌐 Umumiy reyting"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("🎁 Aksiya haqida"),
 		),
 		tgbotapi.NewKeyboardButtonRow(

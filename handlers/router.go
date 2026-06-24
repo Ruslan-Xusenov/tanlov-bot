@@ -51,16 +51,6 @@ func (r *Router) Route(update tgbotapi.Update) {
 			return
 		}
 
-		// Rating callbacks
-		if cq.Data == "rating_daily" {
-			r.Bot.Request(tgbotapi.NewDeleteMessage(chatID, cq.Message.MessageID))
-			handleRatingSelection(r.Bot, chatID, userID, true, db.IsAdmin(userID) || userID == r.SuperAdminID)
-			return
-		} else if cq.Data == "rating_total" {
-			r.Bot.Request(tgbotapi.NewDeleteMessage(chatID, cq.Message.MessageID))
-			handleRatingSelection(r.Bot, chatID, userID, false, db.IsAdmin(userID) || userID == r.SuperAdminID)
-			return
-		}
 
 		// Admin callbacks
 		if db.IsAdmin(userID) || userID == r.SuperAdminID {

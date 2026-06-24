@@ -24,8 +24,10 @@ func HandleUserMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, botUsername 
 	}
 
 	switch msg.Text {
-	case "🏆 Top taklif qilganlar":
-		handleRating(bot, chatID)
+	case "📅 Kunlik reyting":
+		handleRatingSelection(bot, chatID, userID, true, db.IsAdmin(userID))
+	case "🌐 Umumiy reyting":
+		handleRatingSelection(bot, chatID, userID, false, db.IsAdmin(userID))
 	case "🔗 Taklif havolam":
 		handleReferral(bot, chatID, userID, botUsername)
 	case "🎁 Aksiya haqida":
@@ -62,18 +64,6 @@ func handleBallarim(bot *tgbotapi.BotAPI, chatID, userID int64) {
 	send(bot, chatID, fmt.Sprintf("👥 Siz chaqirgan foydalanuvchilar:\n\n📅 Bugun: <b>%d ta</b>\n🌐 Jami: <b>%d ta</b>", daily, total))
 }
 
-// handleRating asks the user to choose between daily and total leaderboard
-func handleRating(bot *tgbotapi.BotAPI, chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "📊 <b>Reyting turini tanlang:</b>")
-	msg.ParseMode = "HTML"
-	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📅 Kunlik reyting", "rating_daily"),
-			tgbotapi.NewInlineKeyboardButtonData("🌐 Umumiy reyting", "rating_total"),
-		),
-	)
-	bot.Send(msg)
-}
 
 func handleRatingSelection(bot *tgbotapi.BotAPI, chatID int64, userID int64, isDaily bool, isAdmin bool) {
 	var users []db.User

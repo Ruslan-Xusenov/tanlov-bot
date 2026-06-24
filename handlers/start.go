@@ -114,13 +114,23 @@ func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 	videoFileID, _ := db.GetSetting("start_video_file_id")
 
 	if videoFileID != "" {
-		// Send video first
 		video := tgbotapi.NewVideo(chatID, tgbotapi.FileID(videoFileID))
-		video.Caption = text
 		video.ParseMode = "HTML"
+
+		if len([]rune(text)) > 1024 {
+			// Caption too long, send video without caption, then text separately
+			if _, err := bot.Send(video); err != nil {
+				log.Printf("[start] failed to send video: %v", err)
+			}
+			sendTextWelcome(bot, chatID, text, markup)
+			return
+		}
+
+		video.Caption = text
 		if markup != nil {
 			video.ReplyMarkup = markup
 		}
+		
 		if _, err := bot.Send(video); err != nil {
 			log.Printf("[start] failed to send video: %v", err)
 			// Fallback to text

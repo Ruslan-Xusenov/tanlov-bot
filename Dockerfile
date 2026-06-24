@@ -18,8 +18,9 @@ RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /root/
 
-# Qurilgan dasturni nusxalash
+# Qurilgan dasturni va rasmni nusxalash
 COPY --from=builder /app/bot_app .
+COPY picture.jpg .
 
 # Dasturni ishga tushirish
 CMD ["./bot_app"]

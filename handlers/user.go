@@ -199,10 +199,20 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 		photoMsg.ReplyMarkup = inlineKb
 		sentMsg, errSend = bot.Send(photoMsg)
 	} else {
-		txtMsg := tgbotapi.NewMessage(chatID, finalMessage)
-		txtMsg.ParseMode = "HTML"
-		txtMsg.ReplyMarkup = inlineKb
-		sentMsg, errSend = bot.Send(txtMsg)
+		// Fallback to local picture.jpg
+		photoMsg := tgbotapi.NewPhoto(chatID, tgbotapi.FilePath("picture.jpg"))
+		photoMsg.Caption = finalMessage
+		photoMsg.ParseMode = "HTML"
+		photoMsg.ReplyMarkup = inlineKb
+		sentMsg, errSend = bot.Send(photoMsg)
+		
+		// If picture.jpg fails (e.g. not found), send text only
+		if errSend != nil {
+			txtMsg := tgbotapi.NewMessage(chatID, finalMessage)
+			txtMsg.ParseMode = "HTML"
+			txtMsg.ReplyMarkup = inlineKb
+			sentMsg, errSend = bot.Send(txtMsg)
+		}
 	}
 
 	if errSend == nil {

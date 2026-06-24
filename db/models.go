@@ -174,6 +174,30 @@ func GetTopReferrersTotal(limit int) ([]User, error) {
 	return users, nil
 }
 
+func GetEligibleUsersForExport(minReferrals int) ([]User, error) {
+	rows, err := DB.Query(`
+		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
+		FROM users
+		WHERE is_active = 1 AND total_referral_count >= $1
+		ORDER BY total_referral_count DESC
+	`, minReferrals)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var users []User
+	for rows.Next() {
+		u := User{}
+		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
+			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
 func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err error) {
 	col := "referral_count"
 	if !isDaily {

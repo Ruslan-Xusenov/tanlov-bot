@@ -3,12 +3,14 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/xuri/excelize/v2"
 	"tanlov-bot/db"
 )
 
@@ -61,6 +63,9 @@ func adminPanelKeyboard() tgbotapi.ReplyKeyboardMarkup {
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("✉️ Xabar yuborish"),
 			tgbotapi.NewKeyboardButton("👥 Adminlar"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("📥 Excel yuklab olish"),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton("🔙 Orqaga"),
@@ -315,6 +320,8 @@ func HandleAdminMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID in
 		handleAdminBroadcastStart(bot, chatID)
 	case "👥 Adminlar":
 		handleAdminAdmins(bot, chatID)
+	case "📥 Excel yuklab olish":
+		handleAdminExportExcel(bot, chatID)
 	case "🔙 Orqaga":
 		adminState.Clear(chatID)
 		menuMsg := tgbotapi.NewMessage(chatID, "📋 <b>Asosiy menyu:</b>")
@@ -593,4 +600,77 @@ func addAdminByInput(bot *tgbotapi.BotAPI, chatID int64, input string, addedBy i
 		return
 	}
 	send(bot, chatID, fmt.Sprintf("✅ %s admin sifatida qo'shildi!", targetName))
+}
+
+func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
+	send(bot, chatID, "⏳ Ma'lumotlar yig'ilmoqda, kuting...")
+
+	// Get users with at least 5 referrals
+	users, err := db.GetEligibleUsersForExport(5)
+	if err != nil {
+		log.Printf("[admin] failed to get users for export: %v", err)
+		send(bot, chatID, "❌ Ma'lumotlarni olishda xatolik yuz berdi.")
+		return
+	}
+
+	if len(users) == 0 {
+		send(bot, chatID, "📭 Hozircha kamida 5 ta referal chaqirgan foydalanuvchilar topilmadi.")
+		return
+	}
+
+	// Create a new Excel file
+	f := excelize.NewFile()
+	defer f.Close()
+	sheetName := "Foydalanuvchilar"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Set headers
+	headers := []string{"T/R", "ID", "Ism-familiya", "Username", "Telefon", "Kunlik referallar", "Umumiy referallar"}
+	for i, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheetName, cell, header)
+	}
+
+	// Add data
+	for i, u := range users {
+		row := i + 2
+		f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), i+1)
+		f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), u.ID)
+		f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), u.FullName)
+		username := ""
+		if u.Username != "" {
+			username = "@" + u.Username
+		}
+		f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), username)
+		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), u.Phone)
+		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), u.ReferralCount)
+		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), u.TotalReferralCount)
+	}
+
+	// Adjust column widths roughly
+	f.SetColWidth(sheetName, "A", "A", 5)
+	f.SetColWidth(sheetName, "B", "B", 15)
+	f.SetColWidth(sheetName, "C", "C", 25)
+	f.SetColWidth(sheetName, "D", "D", 20)
+	f.SetColWidth(sheetName, "E", "E", 15)
+	f.SetColWidth(sheetName, "F", "G", 18)
+
+	// Save file locally
+	fileName := fmt.Sprintf("tanlov_qatnashchilar_%s.xlsx", time.Now().Format("2006-01-02_15-04"))
+	filePath := "/tmp/" + fileName
+	if err := f.SaveAs(filePath); err != nil {
+		log.Printf("[admin] failed to save excel file: %v", err)
+		send(bot, chatID, "❌ Faylni saqlashda xatolik yuz berdi.")
+		return
+	}
+	defer os.Remove(filePath) // Cleanup
+
+	// Send file to admin
+	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(filePath))
+	doc.Caption = fmt.Sprintf("📊 <b>Tanlov qatnashchilari</b>\n\nKamida 5 ta odam chaqirganlar soni: <b>%d ta</b>", len(users))
+	doc.ParseMode = "HTML"
+	if _, err := bot.Send(doc); err != nil {
+		log.Printf("[admin] failed to send excel document: %v", err)
+		send(bot, chatID, "❌ Faylni jo'natishda xatolik yuz berdi.")
+	}
 }

@@ -100,6 +100,10 @@ func SendPhoneRequest(bot *tgbotapi.BotAPI, chatID int64) {
 		bot.Send(qMsg)
 	}
 
+	// Send location after qullanma
+	locMsg := tgbotapi.NewLocation(chatID, 38.120809, 67.724485)
+	bot.Send(locMsg)
+
 	// 2. Send Phone Request
 	phoneMsg := tgbotapi.NewMessage(chatID, "✅ Juda yaxshi!\n\nSizga bog'lana olishimiz uchun pastdagi \"☎️ Raqamni ulashish\" tugmasini bosib telefon raqamingizni yuboring yoki 901112233 kabi yozib yuboring.")
 	phoneMsg.ReplyMarkup = keyboards.RequestContactKeyboard()
@@ -119,10 +123,6 @@ func formatUserIdentifier(username, fullName string) string {
 func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 	text, _ := db.GetSetting("start_message")
 	videoFileID, _ := db.GetSetting("start_video_file_id")
-
-	// Send the physical location first
-	locMsg := tgbotapi.NewLocation(chatID, 38.120809, 67.724485)
-	bot.Send(locMsg)
 
 	if videoFileID != "" {
 		video := tgbotapi.NewVideo(chatID, tgbotapi.FileID(videoFileID))

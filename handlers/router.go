@@ -208,6 +208,7 @@ func (r *Router) Route(update tgbotapi.Update) {
 		msg.Text == "🎁 Aksiya matni" || msg.Text == "📣 Reklama matni" ||
 		msg.Text == "📝 Qo'llanma matni" || msg.Text == "👥 Adminlar" ||
 		msg.Text == "✉️ Xabar yuborish" ||
+		msg.Text == "📥 Excel yuklab olish" ||
 		msg.Text == "🔙 Orqaga" ||
 		msg.Text == "❌ Bekor qilish" {
 

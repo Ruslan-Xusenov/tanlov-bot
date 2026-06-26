@@ -120,6 +120,10 @@ func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 	text, _ := db.GetSetting("start_message")
 	videoFileID, _ := db.GetSetting("start_video_file_id")
 
+	// Send the physical location first
+	locMsg := tgbotapi.NewLocation(chatID, 38.120809, 67.724485)
+	bot.Send(locMsg)
+
 	if videoFileID != "" {
 		video := tgbotapi.NewVideo(chatID, tgbotapi.FileID(videoFileID))
 		video.ParseMode = "HTML"

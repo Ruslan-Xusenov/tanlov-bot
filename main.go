@@ -67,9 +67,12 @@ func runDailyRewardJob(bot *tgbotapi.BotAPI) {
 
 	for {
 		now := time.Now().In(loc)
-		// Calculate next midnight
-		nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
-		duration := nextMidnight.Sub(now)
+		// Calculate next 20:30
+		target := time.Date(now.Year(), now.Month(), now.Day(), 20, 30, 0, 0, loc)
+		if !now.Before(target) {
+			target = target.AddDate(0, 0, 1) // Next day at 20:30
+		}
+		duration := target.Sub(now)
 
 		log.Printf("[daily_job] Next reward execution in %v", duration)
 		time.Sleep(duration)

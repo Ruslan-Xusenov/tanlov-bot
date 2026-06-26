@@ -100,10 +100,6 @@ func SendPhoneRequest(bot *tgbotapi.BotAPI, chatID int64) {
 		bot.Send(qMsg)
 	}
 
-	// Send location after qullanma
-	locMsg := tgbotapi.NewLocation(chatID, 38.120809, 67.724485)
-	bot.Send(locMsg)
-
 	// 2. Send Phone Request
 	phoneMsg := tgbotapi.NewMessage(chatID, "✅ Juda yaxshi!\n\nSizga bog'lana olishimiz uchun pastdagi \"☎️ Raqamni ulashish\" tugmasini bosib telefon raqamingizni yuboring yoki 901112233 kabi yozib yuboring.")
 	phoneMsg.ReplyMarkup = keyboards.RequestContactKeyboard()

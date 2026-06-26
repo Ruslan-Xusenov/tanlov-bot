@@ -51,10 +51,6 @@ func handleQullanma(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 		msg.ReplyMarkup = markup
 	}
 	bot.Send(msg)
-
-	// Send location after qullanma
-	locMsg := tgbotapi.NewLocation(chatID, 38.120809, 67.724485)
-	bot.Send(locMsg)
 }
 
 func handleBallarim(bot *tgbotapi.BotAPI, chatID, userID int64) {

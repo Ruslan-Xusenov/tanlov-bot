@@ -287,6 +287,7 @@ func doBroadcast(bot *tgbotapi.BotAPI, adminChatID int64, originalMsg *tgbotapi.
 func HandleAdminMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int64) {
 	chatID := msg.Chat.ID
 	text := msg.Text
+	log.Printf("[debug_admin] received text: %q (state: %q)", text, adminState.Get(chatID))
 
 	if text == "❌ Bekor qilish" {
 		adminState.Clear(chatID)
@@ -328,6 +329,8 @@ func HandleAdminMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID in
 		menuMsg.ParseMode = "HTML"
 		menuMsg.ReplyMarkup = adminMenuKeyboard()
 		bot.Send(menuMsg)
+	default:
+		log.Printf("[admin] Unknown command from %d: %q", chatID, text)
 	}
 }
 
@@ -603,6 +606,13 @@ func addAdminByInput(bot *tgbotapi.BotAPI, chatID int64, input string, addedBy i
 }
 
 func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[admin] Panic in excel export: %v", r)
+			send(bot, chatID, "❌ Excel fayl yaratishda kutilmagan xatolik yuz berdi.")
+		}
+	}()
+
 	send(bot, chatID, "⏳ Ma'lumotlar yig'ilmoqda, kuting...")
 
 	// Get users with at least 5 referrals

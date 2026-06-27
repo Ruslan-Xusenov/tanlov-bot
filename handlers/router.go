@@ -70,6 +70,12 @@ func (r *Router) Route(update tgbotapi.Update) {
 		db.TouchUserActivity(userID)
 
 		if cq.Data == "check_sub" {
+			user, _ := db.GetUser(userID)
+			if user != nil && user.Phone == "" && !HasPassedCaptcha(userID) {
+				r.Bot.Request(tgbotapi.NewCallback(cq.ID, "⚠️ Oldin rasmdagi misolni yeching!"))
+				return
+			}
+			
 			ok, missing, err := CheckUserSubscriptions(r.Bot, userID, true)
 			if err != nil {
 				log.Printf("[router] sub check error: %v", err)
@@ -154,6 +160,35 @@ func (r *Router) Route(update tgbotapi.Update) {
 	db.TouchUserActivity(userID)
 
 	isAdmin := db.IsAdmin(userID) || userID == r.SuperAdminID
+
+	// ── Captcha Check ──
+	if IsUserInCaptchaState(userID) {
+		if msg.Text != "" {
+			if CheckAndClearCaptcha(userID, msg.Text) {
+				send(r.Bot, chatID, "✅ To'g'ri javob!")
+				
+				// After captcha passed, send them to the subscription gate
+				ok, missing, err := CheckUserSubscriptions(r.Bot, userID, false)
+				if err != nil {
+					log.Printf("[router] sub check error for user %d: %v", userID, err)
+				}
+				if !ok {
+					kb := BuildSubscriptionKeyboard(missing)
+					sendWelcome(r.Bot, chatID, kb)
+				} else {
+					// They are already subscribed to everything
+					sendWelcome(r.Bot, chatID, nil)
+					SendPhoneRequest(r.Bot, chatID)
+				}
+			} else {
+				send(r.Bot, chatID, "❌ Noto'g'ri javob. Qaytadan urinib ko'ring.")
+				GenerateAndSendCaptcha(r.Bot, chatID, userID)
+			}
+		} else {
+			send(r.Bot, chatID, "⚠️ Iltimos, rasmda ko'rsatilgan misolning javobini matn orqali yuboring.")
+		}
+		return
+	}
 
 	// ── Handle Contact (Phone number sharing) ──
 	if msg.Contact != nil {

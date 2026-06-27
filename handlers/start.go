@@ -69,6 +69,15 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 		db.AddAdmin(userID, 0)
 	}
 
+	// ── Check if User Needs Registration (Captcha -> Sub -> Phone) ──
+	user, err := db.GetUser(userID)
+	if err == nil && user != nil && user.Phone == "" {
+		if !HasPassedCaptcha(userID) {
+			GenerateAndSendCaptcha(bot, chatID, userID)
+			return
+		}
+	}
+
 	// ── Subscription gate ──
 	ok, missing, err := CheckUserSubscriptions(bot, userID, false)
 	if err != nil {
@@ -77,14 +86,6 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 	if !ok {
 		kb := BuildSubscriptionKeyboard(missing)
 		sendWelcome(bot, chatID, kb)
-		return
-	}
-
-	// ── Check Phone Number ──
-	user, err := db.GetUser(userID)
-	if err == nil && user != nil && user.Phone == "" {
-		sendWelcome(bot, chatID, nil)
-		SendPhoneRequest(bot, chatID)
 		return
 	}
 

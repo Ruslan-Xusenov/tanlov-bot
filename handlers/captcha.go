@@ -14,7 +14,7 @@ var (
 	// store holds the captchas in memory (auto-eviction)
 	store = base64Captcha.DefaultMemStore
 	// driver for math captchas
-	driver = base64Captcha.NewDriverMath(60, 200, 0, 0, nil, nil, []string{"bg"})
+	driver = base64Captcha.NewDriverMath(60, 200, 0, 0, nil, nil, []string{"wqy-microhei.ttc"})
 	
 	// userCaptchaState stores userID -> captchaID
 	userCaptchaState sync.Map

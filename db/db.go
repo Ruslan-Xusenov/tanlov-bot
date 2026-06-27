@@ -97,6 +97,7 @@ func migrate() {
 		)`,
 
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_referral_count INTEGER DEFAULT 0`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS extra_phone TEXT DEFAULT ''`,
 		`UPDATE users SET total_referral_count = referral_count WHERE total_referral_count = 0 AND referral_count > 0`,
 
 		`CREATE TABLE IF NOT EXISTS channels (

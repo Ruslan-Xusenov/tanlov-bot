@@ -25,26 +25,32 @@ type User struct {
 	IsActive           bool
 	LastActive         time.Time
 	CreatedAt          time.Time
+	ExtraPhone         string
 }
 
 func GetUser(id int64) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at FROM users WHERE id = $1`, id)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone FROM users WHERE id = $1`, id)
 	return scanUser(row)
 }
 
 func GetUserByUsername(username string) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at FROM users WHERE LOWER(username) = LOWER($1)`, username)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone FROM users WHERE LOWER(username) = LOWER($1)`, username)
 	return scanUser(row)
 }
 
 func scanUser(row *sql.Row) (*User, error) {
 	u := &User{}
 	err := row.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
-		&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
+		&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.ExtraPhone)
 	if err != nil {
 		return nil, err
 	}
 	return u, nil
+}
+
+func UpdateUserExtraPhone(id int64, extraPhone string) error {
+	_, err := DB.Exec(`UPDATE users SET extra_phone = $1 WHERE id = $2`, extraPhone, id)
+	return err
 }
 
 func UpsertUser(id int64, username, fullName string) error {
@@ -212,13 +218,12 @@ func GetTopReferrersTotal(limit int) ([]User, error) {
 	return users, nil
 }
 
-func GetEligibleUsersForExport(minReferrals int) ([]User, error) {
+func GetAllUsersForExport() ([]User, error) {
 	rows, err := DB.Query(`
-		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
+		SELECT id, username, full_name, phone, extra_phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
 		FROM users
-		WHERE is_active = 1 AND total_referral_count >= $1
 		ORDER BY total_referral_count DESC
-	`, minReferrals)
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +231,7 @@ func GetEligibleUsersForExport(minReferrals int) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		u := User{}
-		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
+		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ExtraPhone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
 			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
 		if err != nil {
 			return nil, err

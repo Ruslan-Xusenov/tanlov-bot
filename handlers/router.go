@@ -85,10 +85,14 @@ func (r *Router) Route(update tgbotapi.Update) {
 				r.Bot.Request(tgbotapi.NewDeleteMessage(chatID, cq.Message.MessageID))
 
 				user, err := db.GetUser(userID)
-				if err == nil && user != nil && user.Phone == "" {
-					SendPhoneRequest(r.Bot, chatID)
-				} else {
-					CompleteRegistrationFlow(r.Bot, chatID, userID, cq.From.UserName, cq.From.FirstName+" "+cq.From.LastName, r.BotUsername)
+				if err == nil && user != nil {
+					if user.Phone == "" {
+						SendPhoneRequest(r.Bot, chatID)
+					} else if user.ExtraPhone == "" {
+						send(r.Bot, chatID, "📞 Iltimos, doim foydalanadigan telefon raqamingizni yozma ravishda kiriting.")
+					} else {
+						CompleteRegistrationFlow(r.Bot, chatID, userID, cq.From.UserName, cq.From.FirstName+" "+cq.From.LastName, r.BotUsername)
+					}
 				}
 			} else {
 				// Edit the existing message to refresh channel list
@@ -210,10 +214,9 @@ func (r *Router) Route(update tgbotapi.Update) {
 				log.Printf("[router] failed to save phone: %v", err)
 			}
 			
-			rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!")
+			rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!\n\n📞 Iltimos, doim foydalanadigan telefon raqamingizni kiriting.\n\nAgar sizga yoki siz taklif qilgan do‘stingizga yutuq chiqsa, g‘olibni tasdiqlash uchun siz bilan shaxsan bog‘lanamiz.")
+			rmMsg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 			r.Bot.Send(rmMsg)
-
-			CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
 		} else {
 			send(r.Bot, chatID, "⚠️ Iltimos, o'zingizning raqamingizni yuboring. Boshqa profil raqami qabul qilinmaydi.")
 		}
@@ -222,9 +225,27 @@ func (r *Router) Route(update tgbotapi.Update) {
 
 	// ── Phone Check Gate (Strictly require contact) ──
 	user, err := db.GetUser(userID)
-	if err == nil && user != nil && user.Phone == "" {
-		if !msg.IsCommand() {
-			send(r.Bot, chatID, "⚠️ Iltimos, ro'yxatdan o'tish uchun \"☎️ Raqamni ulashish\" tugmasini bosing.")
+	if err == nil && user != nil {
+		if user.Phone == "" {
+			if !msg.IsCommand() {
+				send(r.Bot, chatID, "⚠️ Iltimos, ro'yxatdan o'tish uchun \"☎️ Raqamni ulashish\" tugmasini bosing.")
+				return
+			}
+		} else if user.ExtraPhone == "" {
+			// They have phone, but no extra phone. Expecting text input.
+			if !msg.IsCommand() && msg.Text != "" {
+				text := strings.TrimSpace(msg.Text)
+				// Basic validation: just ensure it's not too short
+				if len(text) >= 7 {
+					db.UpdateUserExtraPhone(userID, text)
+					send(r.Bot, chatID, "✅ Qo'shimcha raqam qabul qilindi!")
+					CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
+				} else {
+					send(r.Bot, chatID, "⚠️ Iltimos, haqiqiy telefon raqamingizni kiriting.")
+				}
+			} else {
+				send(r.Bot, chatID, "📞 Iltimos, doim foydalanadigan telefon raqamingizni yozma ravishda kiriting.")
+			}
 			return
 		}
 	}

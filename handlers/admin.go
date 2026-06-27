@@ -615,8 +615,8 @@ func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
 
 	send(bot, chatID, "⏳ Ma'lumotlar yig'ilmoqda, kuting...")
 
-	// Get users with at least 5 referrals
-	users, err := db.GetEligibleUsersForExport(5)
+	// Get ALL users
+	users, err := db.GetAllUsersForExport()
 	if err != nil {
 		log.Printf("[admin] failed to get users for export: %v", err)
 		send(bot, chatID, "❌ Ma'lumotlarni olishda xatolik yuz berdi.")
@@ -624,7 +624,7 @@ func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
 	}
 
 	if len(users) == 0 {
-		send(bot, chatID, "📭 Hozircha kamida 5 ta referal chaqirgan foydalanuvchilar topilmadi.")
+		send(bot, chatID, "📭 Hozircha foydalanuvchilar topilmadi.")
 		return
 	}
 
@@ -635,7 +635,7 @@ func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Set headers
-	headers := []string{"T/R", "ID", "Ism-familiya", "Username", "Telefon", "Kunlik referallar", "Umumiy referallar"}
+	headers := []string{"T/R", "ID", "Ism-familiya", "Username", "Telefon (Asosiy)", "Telefon (Qo'shimcha)", "Kunlik referallar", "Umumiy referallar"}
 	for i, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, header)
@@ -653,8 +653,9 @@ func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
 		}
 		f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), username)
 		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), u.Phone)
-		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), u.ReferralCount)
-		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), u.TotalReferralCount)
+		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), u.ExtraPhone)
+		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), u.ReferralCount)
+		f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), u.TotalReferralCount)
 	}
 
 	// Adjust column widths roughly
@@ -662,8 +663,8 @@ func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
 	f.SetColWidth(sheetName, "B", "B", 15)
 	f.SetColWidth(sheetName, "C", "C", 25)
 	f.SetColWidth(sheetName, "D", "D", 20)
-	f.SetColWidth(sheetName, "E", "E", 15)
-	f.SetColWidth(sheetName, "F", "G", 18)
+	f.SetColWidth(sheetName, "E", "F", 18)
+	f.SetColWidth(sheetName, "G", "H", 18)
 
 	// Save file locally
 	fileName := fmt.Sprintf("tanlov_qatnashchilar_%s.xlsx", time.Now().Format("2006-01-02_15-04"))
@@ -677,7 +678,7 @@ func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
 
 	// Send file to admin
 	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(filePath))
-	doc.Caption = fmt.Sprintf("📊 <b>Tanlov qatnashchilari</b>\n\nKamida 5 ta odam chaqirganlar soni: <b>%d ta</b>", len(users))
+	doc.Caption = fmt.Sprintf("📊 <b>Barcha foydalanuvchilar ro'yxati</b>\n\nJami ishtirokchilar soni: <b>%d ta</b>", len(users))
 	doc.ParseMode = "HTML"
 	if _, err := bot.Send(doc); err != nil {
 		log.Printf("[admin] failed to send excel document: %v", err)

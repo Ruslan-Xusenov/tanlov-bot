@@ -86,17 +86,6 @@ func runDailyRewardJob(bot *tgbotapi.BotAPI) {
 
 		if winner != nil {
 			log.Printf("[daily_job] Daily winner is UserID: %d (%s) with %d referrals", winner.ID, winner.FullName, winner.ReferralCount)
-			
-			// Send message to winner
-			msgText := fmt.Sprintf("🏆 <b>Tabriklaymiz!</b>\n\nSiz bugun eng ko'p (<b>%d ta</b>) do'stingizni taklif qilib, kunlik g'olib bo'ldingiz!", winner.ReferralCount)
-			msg := tgbotapi.NewMessage(winner.ID, msgText)
-			msg.ParseMode = "HTML"
-			_, err = bot.Send(msg)
-			if err != nil {
-				log.Printf("[daily_job] failed to send winner message: %v", err)
-			}
-
-			// Notify admins
 			admins, err := db.GetAllAdmins()
 			if err == nil {
 				adminText := fmt.Sprintf("🏆 <b>Bugungi g'olib aniqlandi!</b>\n\n"+

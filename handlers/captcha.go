@@ -51,7 +51,7 @@ func GenerateAndSendCaptcha(bot *tgbotapi.BotAPI, chatID int64, userID int64) er
 		Name:  "captcha.png",
 		Bytes: imgBytes,
 	})
-	photo.Caption = "🤖 <b>Iltimos, bot emasligingizni tasdiqlang.</b>\n\nRasmda ko'rsatilgan matematik misolning javobini raqamda yozib yuboring (Masalan: 12):"
+	photo.Caption = "🤖 <b>Haqiqiy foydalanuvchi ekanligingizni tasdiqlang</b>\n\nSo‘nggi vaqtlarda ayrim foydalanuvchilar soxta akkauntlar orqali botdagi reytingini sun’iy oshirishga urinmoqda. Shu sababli qisqa tekshiruvdan o‘tishingizni so‘raymiz.\n\n📷 Yuqoridagi rasmga ustiga bosing, arifmetik misolni to‘liq ko‘ring va javobini faqat raqam ko‘rinishida yuboring.\n\nMasalan: 12\n\n⚠️ Iltimos, faqat misolning javobini yuboring. Qo‘shimcha matn, belgi yoki emoji yozmang. Rahmat!"
 	photo.ParseMode = tgbotapi.ModeHTML
 	
 	_, err = bot.Send(photo)

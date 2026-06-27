@@ -49,12 +49,35 @@ func handleQullanma(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 
 	if qullanmaVideo != "" {
 		vMsg := tgbotapi.NewVideo(chatID, tgbotapi.FileID(qullanmaVideo))
-		vMsg.Caption = qullanmaText
-		vMsg.ParseMode = "HTML"
-		if markup != nil {
-			vMsg.ReplyMarkup = markup
+		
+		// Telegram limits caption to 1024 chars.
+		if len(qullanmaText) > 1000 {
+			vMsg.Caption = "📄 <b>Qo'llanma</b>"
+			vMsg.ParseMode = "HTML"
+			bot.Send(vMsg)
+			
+			msg := tgbotapi.NewMessage(chatID, qullanmaText)
+			msg.ParseMode = "HTML"
+			if markup != nil {
+				msg.ReplyMarkup = markup
+			}
+			bot.Send(msg)
+		} else {
+			vMsg.Caption = qullanmaText
+			vMsg.ParseMode = "HTML"
+			if markup != nil {
+				vMsg.ReplyMarkup = markup
+			}
+			if _, err := bot.Send(vMsg); err != nil {
+				log.Printf("[user] Failed to send Qullanma video: %v", err)
+				msg := tgbotapi.NewMessage(chatID, qullanmaText)
+				msg.ParseMode = "HTML"
+				if markup != nil {
+					msg.ReplyMarkup = markup
+				}
+				bot.Send(msg)
+			}
 		}
-		bot.Send(vMsg)
 	} else {
 		msg := tgbotapi.NewMessage(chatID, qullanmaText)
 		msg.ParseMode = "HTML"

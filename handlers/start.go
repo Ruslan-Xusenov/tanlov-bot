@@ -98,9 +98,24 @@ func SendPhoneRequest(bot *tgbotapi.BotAPI, chatID int64) {
 
 	if qullanmaVideo != "" {
 		vMsg := tgbotapi.NewVideo(chatID, tgbotapi.FileID(qullanmaVideo))
-		vMsg.Caption = qullanmaText
-		vMsg.ParseMode = "HTML"
-		bot.Send(vMsg)
+		if len(qullanmaText) > 1000 {
+			vMsg.Caption = "📄 <b>Qo'llanma</b>"
+			vMsg.ParseMode = "HTML"
+			bot.Send(vMsg)
+			
+			qMsg := tgbotapi.NewMessage(chatID, qullanmaText)
+			qMsg.ParseMode = "HTML"
+			bot.Send(qMsg)
+		} else {
+			vMsg.Caption = qullanmaText
+			vMsg.ParseMode = "HTML"
+			if _, err := bot.Send(vMsg); err != nil {
+				log.Printf("[start] Failed to send Qullanma video: %v", err)
+				qMsg := tgbotapi.NewMessage(chatID, qullanmaText)
+				qMsg.ParseMode = "HTML"
+				bot.Send(qMsg)
+			}
+		}
 	} else if qullanmaText != "" {
 		qMsg := tgbotapi.NewMessage(chatID, qullanmaText)
 		qMsg.ParseMode = "HTML"

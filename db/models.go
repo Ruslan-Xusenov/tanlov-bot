@@ -458,3 +458,17 @@ func GetBotStats() (newUsers, activeUsers, totalUsers int) {
 	DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&totalUsers)
 	return
 }
+
+// IsUserBanned checks if the given user is currently banned.
+func IsUserBanned(userID int64) bool {
+	var isBanned bool
+	err := DB.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1 FROM users 
+			WHERE id = $1 AND banned_until IS NOT NULL AND banned_until > NOW()
+		)`, userID).Scan(&isBanned)
+	if err != nil {
+		return false
+	}
+	return isBanned
+}

@@ -63,6 +63,10 @@ func (r *Router) Route(update tgbotapi.Update) {
 		userID := cq.From.ID
 		chatID := cq.Message.Chat.ID
 
+		if db.IsUserBanned(userID) {
+			return
+		}
+
 		db.TouchUserActivity(userID)
 
 		if cq.Data == "check_sub" {
@@ -141,6 +145,10 @@ func (r *Router) Route(update tgbotapi.Update) {
 	if isSpamming(userID) {
 		monitor.SpamAlert(userID, msg.From.UserName)
 		return // block request
+	}
+
+	if db.IsUserBanned(userID) {
+		return // Ignore banned users entirely
 	}
 
 	db.TouchUserActivity(userID)

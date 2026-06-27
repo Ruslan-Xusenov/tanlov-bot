@@ -33,7 +33,11 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 				bot.Send(msgWarn)
 				return
 			} else {
-				referrerID = parsed
+				if db.IsUserBanned(parsed) {
+					referrerID = 0
+				} else {
+					referrerID = parsed
+				}
 			}
 		}
 	}

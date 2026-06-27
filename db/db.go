@@ -129,6 +129,7 @@ func migrate() {
 	
 	_, _ = DB.Exec(`ALTER TABLE users ADD COLUMN referral_status INTEGER DEFAULT 0`)
 	_, _ = DB.Exec(`ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''`)
+	_, _ = DB.Exec(`ALTER TABLE users ADD COLUMN banned_until TIMESTAMP`)
 	
 	seedDefaultSettings()
 	log.Println("[db] migrations applied")

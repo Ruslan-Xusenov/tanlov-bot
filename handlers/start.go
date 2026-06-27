@@ -92,9 +92,16 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 
 // SendPhoneRequest sends the prizes text (qullanma) and the phone request
 func SendPhoneRequest(bot *tgbotapi.BotAPI, chatID int64) {
-	// 1. Send Qullanma (Prizes) text
+	// 1. Send Qullanma (Prizes) text or video
 	qullanmaText, _ := db.GetSetting("qullanma_text")
-	if qullanmaText != "" {
+	qullanmaVideo, _ := db.GetSetting("qullanma_video_id")
+
+	if qullanmaVideo != "" {
+		vMsg := tgbotapi.NewVideo(chatID, tgbotapi.FileID(qullanmaVideo))
+		vMsg.Caption = qullanmaText
+		vMsg.ParseMode = "HTML"
+		bot.Send(vMsg)
+	} else if qullanmaText != "" {
 		qMsg := tgbotapi.NewMessage(chatID, qullanmaText)
 		qMsg.ParseMode = "HTML"
 		bot.Send(qMsg)

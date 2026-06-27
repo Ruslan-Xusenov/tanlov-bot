@@ -45,12 +45,24 @@ func handleQullanma(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 		qullanmaText = "📄 <b>Qo'llanma</b>\nSizga berilgan referal havoladan nusxa oling va do'stlaringizga yuboring."
 	}
 	
-	msg := tgbotapi.NewMessage(chatID, qullanmaText)
-	msg.ParseMode = "HTML"
-	if markup != nil {
-		msg.ReplyMarkup = markup
+	qullanmaVideo, _ := db.GetSetting("qullanma_video_id")
+
+	if qullanmaVideo != "" {
+		vMsg := tgbotapi.NewVideo(chatID, tgbotapi.FileID(qullanmaVideo))
+		vMsg.Caption = qullanmaText
+		vMsg.ParseMode = "HTML"
+		if markup != nil {
+			vMsg.ReplyMarkup = markup
+		}
+		bot.Send(vMsg)
+	} else {
+		msg := tgbotapi.NewMessage(chatID, qullanmaText)
+		msg.ParseMode = "HTML"
+		if markup != nil {
+			msg.ReplyMarkup = markup
+		}
+		bot.Send(msg)
 	}
-	bot.Send(msg)
 }
 
 func handleBallarim(bot *tgbotapi.BotAPI, chatID, userID int64) {

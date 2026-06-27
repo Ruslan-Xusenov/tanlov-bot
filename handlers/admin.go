@@ -641,7 +641,7 @@ func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
 		f.SetCellValue(sheetName, cell, header)
 	}
 
-	// Add data
+	// Add data for Sheet 1
 	for i, u := range users {
 		row := i + 2
 		f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), i+1)
@@ -658,13 +658,53 @@ func handleAdminExportExcel(bot *tgbotapi.BotAPI, chatID int64) {
 		f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), u.TotalReferralCount)
 	}
 
-	// Adjust column widths roughly
+	// Adjust column widths roughly for Sheet 1
 	f.SetColWidth(sheetName, "A", "A", 5)
 	f.SetColWidth(sheetName, "B", "B", 15)
 	f.SetColWidth(sheetName, "C", "C", 25)
 	f.SetColWidth(sheetName, "D", "D", 20)
 	f.SetColWidth(sheetName, "E", "F", 18)
 	f.SetColWidth(sheetName, "G", "H", 18)
+
+	// Create Sheet 2 for users with >= 5 referrals
+	sheetName2 := "Top 5+ referal"
+	f.NewSheet(sheetName2)
+	
+	// Set headers for Sheet 2
+	for i, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheetName2, cell, header)
+	}
+
+	// Add data for Sheet 2
+	rowIndex := 2
+	topUsersCount := 0
+	for _, u := range users {
+		if u.TotalReferralCount >= 5 {
+			topUsersCount++
+			f.SetCellValue(sheetName2, fmt.Sprintf("A%d", rowIndex), topUsersCount)
+			f.SetCellValue(sheetName2, fmt.Sprintf("B%d", rowIndex), u.ID)
+			f.SetCellValue(sheetName2, fmt.Sprintf("C%d", rowIndex), u.FullName)
+			username := ""
+			if u.Username != "" {
+				username = "@" + u.Username
+			}
+			f.SetCellValue(sheetName2, fmt.Sprintf("D%d", rowIndex), username)
+			f.SetCellValue(sheetName2, fmt.Sprintf("E%d", rowIndex), u.Phone)
+			f.SetCellValue(sheetName2, fmt.Sprintf("F%d", rowIndex), u.ExtraPhone)
+			f.SetCellValue(sheetName2, fmt.Sprintf("G%d", rowIndex), u.ReferralCount)
+			f.SetCellValue(sheetName2, fmt.Sprintf("H%d", rowIndex), u.TotalReferralCount)
+			rowIndex++
+		}
+	}
+
+	// Adjust column widths roughly for Sheet 2
+	f.SetColWidth(sheetName2, "A", "A", 5)
+	f.SetColWidth(sheetName2, "B", "B", 15)
+	f.SetColWidth(sheetName2, "C", "C", 25)
+	f.SetColWidth(sheetName2, "D", "D", 20)
+	f.SetColWidth(sheetName2, "E", "F", 18)
+	f.SetColWidth(sheetName2, "G", "H", 18)
 
 	// Save file locally
 	fileName := fmt.Sprintf("tanlov_qatnashchilar_%s.xlsx", time.Now().Format("2006-01-02_15-04"))

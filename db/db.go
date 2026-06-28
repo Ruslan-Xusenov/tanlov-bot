@@ -101,6 +101,13 @@ func migrate() {
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_daily_winner INTEGER DEFAULT 0`,
 		`UPDATE users SET total_referral_count = referral_count WHERE total_referral_count = 0 AND referral_count > 0`,
 
+		// Optimization Indexes for handling 100,000+ users without lag
+		`CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users(referred_by)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_referral_count ON users(referral_count DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_total_referral_count ON users(total_referral_count DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_is_daily_winner ON users(is_daily_winner)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active)`,
+
 		`CREATE TABLE IF NOT EXISTS channels (
 			id           SERIAL PRIMARY KEY,
 			channel_id   TEXT    NOT NULL UNIQUE,

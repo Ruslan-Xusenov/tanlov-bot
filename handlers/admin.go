@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -256,32 +257,48 @@ func doBroadcast(bot *tgbotapi.BotAPI, adminChatID int64, originalMsg *tgbotapi.
 	}
 
 	total := len(userIDs)
-	sent := 0
-	failed := 0
+	var sent, failed int32
 
-	send(bot, adminChatID, fmt.Sprintf("⏳ Xabar yuborish boshlandi. Jami aktiv foydalanuvchilar: %d ta. Tugagach xabar beraman.", total))
+	send(bot, adminChatID, fmt.Sprintf("⏳ Xabar yuborish boshlandi. Jami aktiv foydalanuvchilar: %d ta. Tugagach xabar beraman. Bu jarayon tezlashtirilgan rejimda (sekundiga ~25 ta xabar) amalga oshirilmoqda.", total))
 
-	for i, uid := range userIDs {
-		copyMsg := tgbotapi.NewCopyMessage(uid, originalMsg.Chat.ID, originalMsg.MessageID)
-		copyMsg.ReplyMarkup = originalMsg.ReplyMarkup
-		
-		_, err := bot.Send(copyMsg)
-		if err != nil {
-			failed++
-			errStr := err.Error()
-			if strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "blocked") || strings.Contains(errStr, "deactivated") || strings.Contains(errStr, "not found") {
-				db.DeactivateUser(uid)
+	// Telegram bot limit is 30 messages per second globally.
+	// We use 25 msgs/sec to leave room for normal bot interactions.
+	msgPerSec := 25
+	ticker := time.NewTicker(time.Second / time.Duration(msgPerSec))
+	defer ticker.Stop()
+
+	var wg sync.WaitGroup
+	// Limit max concurrent goroutines to avoid memory bloat
+	sem := make(chan struct{}, 100)
+
+	for _, uid := range userIDs {
+		<-ticker.C
+		sem <- struct{}{}
+		wg.Add(1)
+
+		go func(u int64) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			copyMsg := tgbotapi.NewCopyMessage(u, originalMsg.Chat.ID, originalMsg.MessageID)
+			copyMsg.ReplyMarkup = originalMsg.ReplyMarkup
+
+			_, err := bot.Send(copyMsg)
+			if err != nil {
+				atomic.AddInt32(&failed, 1)
+				errStr := err.Error()
+				if strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "blocked") || strings.Contains(errStr, "deactivated") || strings.Contains(errStr, "not found") || strings.Contains(errStr, "user is deleted") {
+					db.DeactivateUser(u)
+				}
+			} else {
+				atomic.AddInt32(&sent, 1)
 			}
-		} else {
-			sent++
-		}
-
-		if i > 0 && i%20 == 0 {
-			time.Sleep(1 * time.Second)
-		}
+		}(uid)
 	}
 
-	send(bot, adminChatID, fmt.Sprintf("✅ <b>Xabar yuborish yakunlandi!</b>\n\nJo'natildi: %d ta\nYetib bormadi (Bloklaganlar): %d ta", sent, failed))
+	wg.Wait()
+
+	send(bot, adminChatID, fmt.Sprintf("✅ <b>Xabar yuborish yakunlandi!</b>\n\nJo'natildi: %d ta\nYetib bormadi (Bloklaganlar yoki o'chirilganlar): %d ta", sent, failed))
 }
 
 func HandleAdminMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int64) {

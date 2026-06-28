@@ -161,12 +161,16 @@ func handleRatingSelection(bot *tgbotapi.BotAPI, chatID int64, userID int64, isD
 	// Motivational message logic
 	if !isAdmin {
 		rank, fifthScore, err := db.GetUserRank(userID, isDaily)
-		if err == nil && rank > limit {
-			missing := fifthScore - getScore(userID, isDaily) + 1 // +1 to overtake or tie
-			if missing <= 0 {
-				missing = 1 // At least 1 to be safe
+		if err == nil {
+			if rank == -1 {
+				sb.WriteString("\n💡 <i>Siz avvalgi kunlarda g'olib bo'lganingiz uchun bugungi kunlik reytingda ishtirok etmaysiz (boshqalarga imkoniyat berish maqsadida). Lekin siz qo'shayotgan odamlar umumiy reytingda hisoblanmoqda! Olg'a!</i>")
+			} else if rank > limit {
+				missing := fifthScore - getScore(userID, isDaily) + 1 // +1 to overtake or tie
+				if missing <= 0 {
+					missing = 1 // At least 1 to be safe
+				}
+				sb.WriteString(fmt.Sprintf("\n💡 <i>Sizning hozirgi o'rningiz: <b>%d-o'rin</b>.\nTop %d reytingga kirishingiz uchun yana <b>%d ta</b> do'stingizni chaqirishingiz kerak! Olg'a!</i>", rank, limit, missing))
 			}
-			sb.WriteString(fmt.Sprintf("\n💡 <i>Sizning hozirgi o'rningiz: <b>%d-o'rin</b>.\nTop %d reytingga kirishingiz uchun yana <b>%d ta</b> do'stingizni chaqirishingiz kerak! Olg'a!</i>", rank, limit, missing))
 		}
 	}
 

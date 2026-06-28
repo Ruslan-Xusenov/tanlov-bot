@@ -26,22 +26,23 @@ type User struct {
 	LastActive         time.Time
 	CreatedAt          time.Time
 	ExtraPhone         string
+	IsDailyWinner      int
 }
 
 func GetUser(id int64) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone FROM users WHERE id = $1`, id)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner FROM users WHERE id = $1`, id)
 	return scanUser(row)
 }
 
 func GetUserByUsername(username string) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone FROM users WHERE LOWER(username) = LOWER($1)`, username)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner FROM users WHERE LOWER(username) = LOWER($1)`, username)
 	return scanUser(row)
 }
 
 func scanUser(row *sql.Row) (*User, error) {
 	u := &User{}
 	err := row.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
-		&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.ExtraPhone)
+		&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.ExtraPhone, &u.IsDailyWinner)
 	if err != nil {
 		return nil, err
 	}
@@ -174,8 +175,9 @@ func UserExists(id int64) (bool, error) {
 
 func GetTopReferrersDaily(limit int) ([]User, error) {
 	rows, err := DB.Query(`
-		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
+		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner
 		FROM users
+		WHERE is_daily_winner = 0
 		ORDER BY referral_count DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC
 		LIMIT $1`, limit)
 	if err != nil {
@@ -186,7 +188,7 @@ func GetTopReferrersDaily(limit int) ([]User, error) {
 	for rows.Next() {
 		u := User{}
 		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
-			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
+			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.ExtraPhone, &u.IsDailyWinner)
 		if err != nil {
 			return nil, err
 		}
@@ -197,7 +199,7 @@ func GetTopReferrersDaily(limit int) ([]User, error) {
 
 func GetTopReferrersTotal(limit int) ([]User, error) {
 	rows, err := DB.Query(`
-		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
+		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner
 		FROM users
 		ORDER BY total_referral_count DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC
 		LIMIT $1`, limit)
@@ -209,7 +211,7 @@ func GetTopReferrersTotal(limit int) ([]User, error) {
 	for rows.Next() {
 		u := User{}
 		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
-			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
+			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.ExtraPhone, &u.IsDailyWinner)
 		if err != nil {
 			return nil, err
 		}
@@ -220,7 +222,7 @@ func GetTopReferrersTotal(limit int) ([]User, error) {
 
 func GetAllUsersForExport() ([]User, error) {
 	rows, err := DB.Query(`
-		SELECT id, username, full_name, phone, extra_phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
+		SELECT id, username, full_name, phone, extra_phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, is_daily_winner
 		FROM users
 		ORDER BY total_referral_count DESC
 	`)
@@ -232,7 +234,7 @@ func GetAllUsersForExport() ([]User, error) {
 	for rows.Next() {
 		u := User{}
 		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ExtraPhone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
-			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt)
+			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.IsDailyWinner)
 		if err != nil {
 			return nil, err
 		}
@@ -248,7 +250,12 @@ func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err
 	}
 
 	// Get 5th place score
-	queryFifth := fmt.Sprintf(`SELECT %s FROM users ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC LIMIT 1 OFFSET 4`, col, col)
+	var queryFifth string
+	if isDaily {
+		queryFifth = fmt.Sprintf(`SELECT %s FROM users WHERE is_daily_winner = 0 ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC LIMIT 1 OFFSET 4`, col, col)
+	} else {
+		queryFifth = fmt.Sprintf(`SELECT %s FROM users ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC LIMIT 1 OFFSET 4`, col, col)
+	}
 	err = DB.QueryRow(queryFifth).Scan(&fifthPlaceScore)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -260,17 +267,33 @@ func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err
 	}
 
 	// Get user rank
-	// Rank is defined as: number of users strictly greater than this user, plus 1.
-	// We also need to account for ties and alphabetical sorting.
-	// A simpler way is to use window functions.
-	queryRank := fmt.Sprintf(`
-		WITH RankedUsers AS (
-			SELECT id, RANK() OVER(ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC) as rank
-			FROM users
-		)
-		SELECT rank FROM RankedUsers WHERE id = $1
-	`, col)
+	var queryRank string
+	if isDaily {
+		queryRank = fmt.Sprintf(`
+			WITH RankedUsers AS (
+				SELECT id, RANK() OVER(ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC) as rank
+				FROM users WHERE is_daily_winner = 0
+			)
+			SELECT rank FROM RankedUsers WHERE id = $1
+		`, col)
+	} else {
+		queryRank = fmt.Sprintf(`
+			WITH RankedUsers AS (
+				SELECT id, RANK() OVER(ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC) as rank
+				FROM users
+			)
+			SELECT rank FROM RankedUsers WHERE id = $1
+		`, col)
+	}
 	err = DB.QueryRow(queryRank, userID).Scan(&rank)
+	if err != nil && err == sql.ErrNoRows && isDaily {
+		// User might be excluded because they are a daily winner
+		var isWinner int
+		checkErr := DB.QueryRow(`SELECT is_daily_winner FROM users WHERE id = $1`, userID).Scan(&isWinner)
+		if checkErr == nil && isWinner == 1 {
+			return -1, fifthPlaceScore, nil
+		}
+	}
 	return rank, fifthPlaceScore, err
 }
 
@@ -278,20 +301,26 @@ func ProcessDailyReward() (*User, error) {
 	// Find winner
 	winner := &User{}
 	row := DB.QueryRow(`
-		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at
+		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner
 		FROM users
-		WHERE referral_count > 0 AND is_active = 1
+		WHERE referral_count > 0 AND is_active = 1 AND is_daily_winner = 0
 		ORDER BY referral_count DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC
 		LIMIT 1
 	`)
 
 	err := row.Scan(&winner.ID, &winner.Username, &winner.FullName, &winner.Phone, &winner.ReferredBy, &winner.ReferralCount, &winner.TotalReferralCount, &winner.ReferralStatus,
-		&winner.IsAdmin, &winner.IsActive, &winner.LastActive, &winner.CreatedAt)
+		&winner.IsAdmin, &winner.IsActive, &winner.LastActive, &winner.CreatedAt, &winner.ExtraPhone, &winner.IsDailyWinner)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			winner = nil // No winner today
 		} else {
+			return nil, err
+		}
+	} else if winner != nil {
+		// Mark as daily winner
+		_, err = DB.Exec(`UPDATE users SET is_daily_winner = 1 WHERE id = $1`, winner.ID)
+		if err != nil {
 			return nil, err
 		}
 	}

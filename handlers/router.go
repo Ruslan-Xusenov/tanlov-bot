@@ -222,7 +222,7 @@ func (r *Router) Route(update tgbotapi.Update) {
 			}
 
 			// Check if phone already registered
-			exists, _ := db.CheckPhoneExists(phone)
+			exists, _ := db.CheckPhoneExists(phone, userID)
 			if exists {
 				send(r.Bot, chatID, "❌ Bu telefon raqami orqali allaqachon ro'yxatdan o'tilgan. Bitta raqamdan faqat bir marta foydalanish mumkin.")
 				return

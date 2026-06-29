@@ -166,9 +166,9 @@ func TouchUserActivity(id int64) error {
 	return err
 }
 
-func CheckPhoneExists(phone string) (bool, error) {
+func CheckPhoneExists(phone string, userID int64) (bool, error) {
 	var count int
-	err := DB.QueryRow(`SELECT COUNT(*) FROM users WHERE phone = $1`, phone).Scan(&count)
+	err := DB.QueryRow(`SELECT COUNT(*) FROM users WHERE phone = $1 AND id != $2`, phone, userID).Scan(&count)
 	return count > 0, err
 }
 

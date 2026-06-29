@@ -235,16 +235,49 @@ func (r *Router) Route(update tgbotapi.Update) {
 			// They have phone, but no extra phone. Expecting text input.
 			if !msg.IsCommand() && msg.Text != "" {
 				text := strings.TrimSpace(msg.Text)
-				// Basic validation: just ensure it's not too short
-				if len(text) >= 7 {
-					db.UpdateUserExtraPhone(userID, text)
-					send(r.Bot, chatID, "✅ Qo'shimcha raqam qabul qilindi!")
-					CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
-				} else {
-					send(r.Bot, chatID, "⚠️ Iltimos, haqiqiy telefon raqamingizni kiriting.")
+				// Remove common formatting characters
+				cleaned := strings.ReplaceAll(text, " ", "")
+				cleaned = strings.ReplaceAll(cleaned, "-", "")
+				cleaned = strings.ReplaceAll(cleaned, "(", "")
+				cleaned = strings.ReplaceAll(cleaned, ")", "")
+				cleaned = strings.TrimPrefix(cleaned, "+")
+
+				// Validate: must be digits only after cleaning
+				if !isNumeric(cleaned) || len(cleaned) < 9 {
+					send(r.Bot, chatID, "⚠️ Iltimos, haqiqiy telefon raqamingizni kiriting.\n\nMasalan: 901234567 yoki 998901234567")
+					return
 				}
+
+				// Normalize to 998XXXXXXXXX format
+				if len(cleaned) == 9 {
+					cleaned = "998" + cleaned
+				}
+				if !strings.HasPrefix(cleaned, "998") || len(cleaned) != 12 {
+					send(r.Bot, chatID, "⚠️ Faqat O'zbekiston (+998) raqamini kiriting.\n\nMasalan: 901234567 yoki 998901234567")
+					return
+				}
+
+				// Check it's not the same as primary phone
+				primaryCleaned := strings.ReplaceAll(user.Phone, "+", "")
+				primaryCleaned = strings.ReplaceAll(primaryCleaned, " ", "")
+				if cleaned == primaryCleaned {
+					send(r.Bot, chatID, "⚠️ Bu raqam sizning asosiy raqamingiz bilan bir xil. Iltimos, boshqa raqam kiriting.")
+					return
+				}
+
+				// Re-verify channel subscription before approving
+				subOk, missing, _ := CheckUserSubscriptions(r.Bot, userID, false)
+				if !subOk {
+					kb := BuildSubscriptionKeyboard(missing)
+					sendWelcome(r.Bot, chatID, kb)
+					return
+				}
+
+				db.UpdateUserExtraPhone(userID, cleaned)
+				send(r.Bot, chatID, "✅ Qo'shimcha raqam qabul qilindi!")
+				CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
 			} else {
-				send(r.Bot, chatID, "📞 Iltimos, doim foydalanadigan telefon raqamingizni yozma ravishda kiriting.")
+				send(r.Bot, chatID, "📞 Iltimos, doim foydalanadigan telefon raqamingizni yozma ravishda kiriting.\n\nMasalan: 901234567")
 			}
 			return
 		}

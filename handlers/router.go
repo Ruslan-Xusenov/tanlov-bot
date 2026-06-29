@@ -71,11 +71,8 @@ func (r *Router) Route(update tgbotapi.Update) {
 
 		if cq.Data == "check_sub" {
 			user, _ := db.GetUser(userID)
-			if user != nil && (user.Phone == "" || user.CaptchaPassed == 0) && !HasPassedCaptcha(userID) {
+			if user != nil && user.Phone == "" && !HasPassedCaptcha(userID) {
 				r.Bot.Request(tgbotapi.NewCallback(cq.ID, "⚠️ Oldin rasmdagi kodni kiriting!"))
-				if !IsUserInCaptchaState(userID) {
-					GenerateAndSendCaptcha(r.Bot, chatID, userID)
-				}
 				return
 			}
 			
@@ -168,15 +165,6 @@ func (r *Router) Route(update tgbotapi.Update) {
 
 	isAdmin := db.IsAdmin(userID) || userID == r.SuperAdminID
 
-	user, err := db.GetUser(userID)
-	if err == nil && user != nil && user.CaptchaPassed == 0 {
-		if !msg.IsCommand() || msg.Command() != "start" {
-			if !IsUserInCaptchaState(userID) {
-				GenerateAndSendCaptcha(r.Bot, chatID, userID)
-				return
-			}
-		}
-	}
 
 	// ── Captcha Check ──
 	if IsUserInCaptchaState(userID) {
@@ -242,7 +230,7 @@ func (r *Router) Route(update tgbotapi.Update) {
 	}
 
 	// ── Phone Check Gate (Strictly require contact) ──
-	user, err = db.GetUser(userID)
+	user, err := db.GetUser(userID)
 	if err == nil && user != nil {
 		if user.Phone == "" {
 			if !msg.IsCommand() {

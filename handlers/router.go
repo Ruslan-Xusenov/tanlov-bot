@@ -183,6 +183,11 @@ func (r *Router) Route(update tgbotapi.Update) {
 		if msg.Text != "" {
 			if CheckAndClearCaptcha(userID, msg.Text) {
 				send(r.Bot, chatID, "✅ To'g'ri javob!")
+				userObj, _ := db.GetUser(userID)
+				if userObj != nil && userObj.Phone != "" && userObj.ExtraPhone != "" {
+					SendMenu(r.Bot, chatID)
+					return
+				}
 				
 				// After captcha passed, send them to the subscription gate
 				ok, missing, err := CheckUserSubscriptions(r.Bot, userID, false)

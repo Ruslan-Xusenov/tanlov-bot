@@ -84,9 +84,10 @@ func handleAdminStats(bot *tgbotapi.BotAPI, chatID int64) {
 	text := fmt.Sprintf(
 		"📊 <b>Foydalanuvchilar statistikasi</b>\n\n"+
 			"👥 Jami: <b>%d ta</b>\n"+
-			"✅ Aktiv (30 kun): <b>%d ta</b>\n"+
-			"😴 Noaktiv: <b>%d ta</b>",
-		stats.Total, stats.Active, stats.Inactive,
+			"✅ Aktiv: <b>%d ta</b>\n"+
+			"😴 Noaktiv: <b>%d ta</b>\n"+
+			"🚫 Bloklangan: <b>%d ta</b>",
+		stats.Total, stats.Active, stats.Inactive, stats.Banned,
 	)
 	send(bot, chatID, text)
 }

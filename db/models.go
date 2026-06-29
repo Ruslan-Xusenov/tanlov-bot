@@ -361,17 +361,19 @@ type UserStats struct {
 	Total    int
 	Active   int
 	Inactive int
+	Banned   int
 }
 
 func GetUserStats() (UserStats, error) {
 	row := DB.QueryRow(`
 		SELECT
 			(SELECT COUNT(*) FROM users) as total,
-			(SELECT COUNT(*) FROM users WHERE last_active >= NOW() - INTERVAL '30 days') as active,
-			(SELECT COUNT(*) FROM users WHERE last_active < NOW() - INTERVAL '30 days') as inactive
+			(SELECT COUNT(*) FROM users WHERE is_active = 1 AND (banned_until IS NULL OR banned_until <= NOW())) as active,
+			(SELECT COUNT(*) FROM users WHERE is_active = 0) as inactive,
+			(SELECT COUNT(*) FROM users WHERE banned_until IS NOT NULL AND banned_until > NOW()) as banned
 	`)
 	var s UserStats
-	err := row.Scan(&s.Total, &s.Active, &s.Inactive)
+	err := row.Scan(&s.Total, &s.Active, &s.Inactive, &s.Banned)
 	return s, err
 }
 

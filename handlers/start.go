@@ -71,7 +71,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 
 	// ── Check if User Needs Registration (Captcha -> Sub -> Phone) ──
 	user, err := db.GetUser(userID)
-	if err == nil && user != nil && user.Phone == "" {
+	if err == nil && user != nil && (user.Phone == "" || user.CaptchaPassed == 0) {
 		if !HasPassedCaptcha(userID) {
 			GenerateAndSendCaptcha(bot, chatID, userID)
 			return

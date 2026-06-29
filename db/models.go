@@ -26,22 +26,23 @@ type User struct {
 	CreatedAt          time.Time
 	ExtraPhone         string
 	IsDailyWinner      int
+	CaptchaPassed      int
 }
 
 func GetUser(id int64) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner FROM users WHERE id = $1`, id)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner, captcha_passed FROM users WHERE id = $1`, id)
 	return scanUser(row)
 }
 
 func GetUserByUsername(username string) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner FROM users WHERE LOWER(username) = LOWER($1)`, username)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner, captcha_passed FROM users WHERE LOWER(username) = LOWER($1)`, username)
 	return scanUser(row)
 }
 
 func scanUser(row *sql.Row) (*User, error) {
 	u := &User{}
 	err := row.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
-		&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.ExtraPhone, &u.IsDailyWinner)
+		&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.ExtraPhone, &u.IsDailyWinner, &u.CaptchaPassed)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +51,11 @@ func scanUser(row *sql.Row) (*User, error) {
 
 func UpdateUserExtraPhone(id int64, extraPhone string) error {
 	_, err := DB.Exec(`UPDATE users SET extra_phone = $1 WHERE id = $2`, extraPhone, id)
+	return err
+}
+
+func SetCaptchaPassed(id int64) error {
+	_, err := DB.Exec(`UPDATE users SET captcha_passed = 1 WHERE id = $1`, id)
 	return err
 }
 

@@ -8,13 +8,14 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/mojocn/base64Captcha"
+	"tanlov-bot/db"
 )
 
 var (
 	// store holds the captchas in memory (auto-eviction)
 	store = base64Captcha.DefaultMemStore
-	// driver for math captchas
-	driver = base64Captcha.NewDriverMath(60, 200, 0, 0, nil, nil, []string{"wqy-microhei.ttc"})
+	// driver for distorted digit captchas
+	driver = base64Captcha.NewDriverDigit(80, 240, 5, 0.7, 80)
 	
 	// userCaptchaState stores userID -> captchaID
 	userCaptchaState sync.Map
@@ -51,7 +52,7 @@ func GenerateAndSendCaptcha(bot *tgbotapi.BotAPI, chatID int64, userID int64) er
 		Name:  "captcha.png",
 		Bytes: imgBytes,
 	})
-	photo.Caption = "🤖 <b>Haqiqiy foydalanuvchi ekanligingizni tasdiqlang</b>\n\nSo‘nggi vaqtlarda ayrim foydalanuvchilar soxta akkauntlar orqali botdagi reytingini sun’iy oshirishga urinmoqda. Shu sababli qisqa tekshiruvdan o‘tishingizni so‘raymiz.\n\n📷 Yuqoridagi rasmga ustiga bosing, arifmetik misolni to‘liq ko‘ring va javobini faqat raqam ko‘rinishida yuboring.\n\nMasalan: 12\n\n⚠️ Iltimos, faqat misolning javobini yuboring. Qo‘shimcha matn, belgi yoki emoji yozmang. Rahmat!"
+	photo.Caption = "🤖 <b>Haqiqiy foydalanuvchi ekanligingizni tasdiqlang</b>\n\nSo‘nggi vaqtlarda ayrim foydalanuvchilar soxta akkauntlar orqali botdagi reytingini sun’iy oshirishga urinmoqda. Shu sababli tizimni tozalash jarayoni ketmoqda.\n\n📷 Iltimos, yuqoridagi rasmda ko'rib turgan <b>5 ta raqamni</b> yozib yuboring.\n\n⚠️ Faqat rasm ko'rsatilgan raqamlarni yozing. Boshqa so'z qo'shmang."
 	photo.ParseMode = tgbotapi.ModeHTML
 	
 	_, err = bot.Send(photo)
@@ -71,6 +72,7 @@ func CheckAndClearCaptcha(userID int64, answer string) bool {
 	if store.Verify(captchaID, answer, true) {
 		userCaptchaState.Delete(userID)
 		passedCaptchaCache.Store(userID, true)
+		db.SetCaptchaPassed(userID)
 		return true
 	}
 	
@@ -86,6 +88,12 @@ func IsUserInCaptchaState(userID int64) bool {
 // HasPassedCaptcha returns true if the user has successfully solved a captcha in this session.
 // For fully registered users (with phone), we don't even check this (we can just allow them).
 func HasPassedCaptcha(userID int64) bool {
+	// First check database
+	user, err := db.GetUser(userID)
+	if err == nil && user != nil && user.CaptchaPassed == 1 {
+		return true
+	}
+	// Fallback to in-memory cache
 	_, ok := passedCaptchaCache.Load(userID)
 	return ok
 }

@@ -2,7 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -175,10 +174,13 @@ func UserExists(id int64) (bool, error) {
 
 func GetTopReferrersDaily(limit int) ([]User, error) {
 	rows, err := DB.Query(`
-		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner
-		FROM users
-		WHERE is_daily_winner = 0
-		ORDER BY referral_count DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC
+		SELECT u.id, u.username, u.full_name, u.phone, u.referred_by,
+			(SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1 AND r.created_at >= CURRENT_DATE) as daily_count,
+			(SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1) as total_count,
+			u.referral_status, u.is_admin, u.is_active, u.last_active, u.created_at, u.extra_phone, u.is_daily_winner
+		FROM users u
+		WHERE u.is_daily_winner = 0 AND u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
+		ORDER BY daily_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
 		LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
@@ -199,9 +201,13 @@ func GetTopReferrersDaily(limit int) ([]User, error) {
 
 func GetTopReferrersTotal(limit int) ([]User, error) {
 	rows, err := DB.Query(`
-		SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner
-		FROM users
-		ORDER BY total_referral_count DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC
+		SELECT u.id, u.username, u.full_name, u.phone, u.referred_by,
+			(SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1 AND r.created_at >= CURRENT_DATE) as daily_count,
+			(SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1) as total_count,
+			u.referral_status, u.is_admin, u.is_active, u.last_active, u.created_at, u.extra_phone, u.is_daily_winner
+		FROM users u
+		WHERE u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
+		ORDER BY total_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
 		LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
@@ -244,50 +250,62 @@ func GetAllUsersForExport() ([]User, error) {
 }
 
 func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err error) {
-	col := "referral_count"
-	if !isDaily {
-		col = "total_referral_count"
-	}
-
-	// Get 5th place score
+	// Get 5th place score using real COUNT
 	var queryFifth string
 	if isDaily {
-		queryFifth = fmt.Sprintf(`SELECT %s FROM users WHERE is_daily_winner = 0 ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC LIMIT 1 OFFSET 4`, col, col)
+		queryFifth = `
+			SELECT COALESCE(
+				(SELECT cnt FROM (
+					SELECT (SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1 AND r.created_at >= CURRENT_DATE) as cnt
+					FROM users u
+					WHERE u.is_daily_winner = 0 AND u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
+					ORDER BY cnt DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
+					LIMIT 1 OFFSET 4
+				) sub), 0)`
 	} else {
-		queryFifth = fmt.Sprintf(`SELECT %s FROM users ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC LIMIT 1 OFFSET 4`, col, col)
+		queryFifth = `
+			SELECT COALESCE(
+				(SELECT cnt FROM (
+					SELECT (SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1) as cnt
+					FROM users u
+					WHERE u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
+					ORDER BY cnt DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
+					LIMIT 1 OFFSET 4
+				) sub), 0)`
 	}
 	err = DB.QueryRow(queryFifth).Scan(&fifthPlaceScore)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			fifthPlaceScore = 0 // Less than 5 users
+			fifthPlaceScore = 0
 			err = nil
 		} else {
 			return 0, 0, err
 		}
 	}
 
-	// Get user rank
+	// Get user rank using real COUNT
 	var queryRank string
 	if isDaily {
-		queryRank = fmt.Sprintf(`
+		queryRank = `
 			WITH RankedUsers AS (
-				SELECT id, RANK() OVER(ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC) as rank
-				FROM users WHERE is_daily_winner = 0
+				SELECT u.id,
+					RANK() OVER(ORDER BY (SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1 AND r.created_at >= CURRENT_DATE) DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC) as rank
+				FROM users u
+				WHERE u.is_daily_winner = 0 AND u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
 			)
-			SELECT rank FROM RankedUsers WHERE id = $1
-		`, col)
+			SELECT rank FROM RankedUsers WHERE id = $1`
 	} else {
-		queryRank = fmt.Sprintf(`
+		queryRank = `
 			WITH RankedUsers AS (
-				SELECT id, RANK() OVER(ORDER BY %s DESC, LOWER(COALESCE(NULLIF(username, ''), full_name)) ASC) as rank
-				FROM users
+				SELECT u.id,
+					RANK() OVER(ORDER BY (SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1) DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC) as rank
+				FROM users u
+				WHERE u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
 			)
-			SELECT rank FROM RankedUsers WHERE id = $1
-		`, col)
+			SELECT rank FROM RankedUsers WHERE id = $1`
 	}
 	err = DB.QueryRow(queryRank, userID).Scan(&rank)
 	if err != nil && err == sql.ErrNoRows && isDaily {
-		// User might be excluded because they are a daily winner
 		var isWinner int
 		checkErr := DB.QueryRow(`SELECT is_daily_winner FROM users WHERE id = $1`, userID).Scan(&isWinner)
 		if checkErr == nil && isWinner == 1 {

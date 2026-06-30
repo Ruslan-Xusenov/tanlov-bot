@@ -195,20 +195,23 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 
 	link := utils.BuildReferralLink(botUsername, userID)
 	count := 0
+	total := 0
 	if user != nil {
-		count = user.TotalReferralCount
+		count = user.ReferralCount
+		total = user.TotalReferralCount
 	}
 
 	// Get admin-configured ad text
 	adText, _ := db.GetSetting("referral_ad_text")
 	if adText == "" {
-		adText = "🚀 Do'stingizni taklif qiling!\n\n👇 Pastdagi tugmani bosing:\n\n🔗 <b>Sizning referal havolangiz:</b>\n{link}\n\n👥 Siz chaqirgan foydalanuvchilar: <b>{count} ta</b>"
+		adText = "🚀 Do'stingizni taklif qiling!\n\n👇 Pastdagi tugmani bosing:\n\n🔗 <b>Sizning referal havolangiz:</b>\n{link}\n\n👥 Siz bugun chaqirgan odamlar: <b>{count} ta</b>\n📊 Umumiy chaqirgan odamlar: <b>{total} ta</b>"
 	}
 
 	var finalMessage string
-	if strings.Contains(adText, "{link}") || strings.Contains(adText, "{count}") {
+	if strings.Contains(adText, "{link}") || strings.Contains(adText, "{count}") || strings.Contains(adText, "{total}") {
 		finalMessage = strings.ReplaceAll(adText, "{link}", link)
 		finalMessage = strings.ReplaceAll(finalMessage, "{count}", fmt.Sprintf("%d", count))
+		finalMessage = strings.ReplaceAll(finalMessage, "{total}", fmt.Sprintf("%d", total))
 	} else {
 		// Fallback for old configs that didn't use placeholders
 		statsText := fmt.Sprintf("\n\n🔗 <b>Sizning referal havolangiz:</b>\n%s", link)

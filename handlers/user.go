@@ -135,7 +135,7 @@ func handleRatingSelection(bot *tgbotapi.BotAPI, chatID int64, userID int64, isD
 		}
 
 		name := u.FullName
-		if u.Username != "" {
+		if name == "" && u.Username != "" {
 			name = "@" + u.Username
 		}
 		if name == "" {

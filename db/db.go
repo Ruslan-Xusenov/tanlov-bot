@@ -143,6 +143,7 @@ func migrate() {
 	_, _ = DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS device_id TEXT DEFAULT ''`)
 	_, _ = DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ip_address TEXT DEFAULT ''`)
 	_, _ = DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS captcha_passed INTEGER DEFAULT 0`)
+	_, _ = DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS web_app_passed INTEGER DEFAULT 0`)
 	
 	seedDefaultSettings()
 	log.Println("[db] migrations applied")

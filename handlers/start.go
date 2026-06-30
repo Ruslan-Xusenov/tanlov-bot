@@ -69,34 +69,9 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 		db.AddAdmin(userID, 0)
 	}
 
-	// ── Check if User Needs Registration (Web App -> Phone) ──
-	user, err := db.GetUser(userID)
-	if err == nil && user != nil {
-		if !db.IsUserRegistered(userID) {
-			// User needs to register via Web App first
-			// Check subscription gate first
-			ok, missing, err := CheckUserSubscriptions(bot, userID, false)
-			if err != nil {
-				log.Printf("[start] sub check error for user %d: %v", userID, err)
-			}
-			if !ok {
-				kb := BuildSubscriptionKeyboard(missing)
-				sendWelcome(bot, chatID, kb)
-				return
-			}
-			// Send Web App registration button
-			SendWebAppButton(bot, chatID)
-			return
-		}
-
-		if user.Phone == "" {
-			// They passed Web App but don't have phone yet
-			SendPhoneRequest(bot, chatID)
-			return
-		}
-	}
-
-	// ── Subscription gate ──
+	// ── Check if User Needs Registration (Subscription -> Web App -> Phone) ──
+	
+	// 1. Subscription gate
 	ok, missing, err := CheckUserSubscriptions(bot, userID, false)
 	if err != nil {
 		log.Printf("[start] sub check error for user %d: %v", userID, err)
@@ -105,6 +80,21 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 		kb := BuildSubscriptionKeyboard(missing)
 		sendWelcome(bot, chatID, kb)
 		return
+	}
+
+	user, err := db.GetUser(userID)
+	if err == nil && user != nil {
+		// 2. Web App Registration Check
+		if !db.IsUserRegistered(userID) {
+			SendWebAppButton(bot, chatID)
+			return
+		}
+
+		// 3. Phone Registration Check
+		if user.Phone == "" {
+			SendPhoneRequest(bot, chatID)
+			return
+		}
 	}
 
 	if user != nil {

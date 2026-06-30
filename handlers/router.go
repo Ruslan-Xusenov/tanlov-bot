@@ -81,6 +81,13 @@ func (r *Router) Route(update tgbotapi.Update) {
 
 				user, err := db.GetUser(userID)
 				if err == nil && user != nil {
+					// 2. Web App check
+					if !db.IsUserRegistered(userID) {
+						SendWebAppButton(r.Bot, chatID)
+						return
+					}
+
+					// 3. Phone check
 					if user.Phone == "" {
 						SendPhoneRequest(r.Bot, chatID)
 					} else if user.ExtraPhone == "" {

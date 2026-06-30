@@ -71,7 +71,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 
 	// ── Check if User Needs Registration (Web App -> Phone) ──
 	user, err := db.GetUser(userID)
-	if err == nil && user != nil && user.Phone == "" {
+	if err == nil && user != nil {
 		if !db.IsUserRegistered(userID) {
 			// User needs to register via Web App first
 			// Check subscription gate first
@@ -86,6 +86,12 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 			}
 			// Send Web App registration button
 			SendWebAppButton(bot, chatID)
+			return
+		}
+
+		if user.Phone == "" {
+			// They passed Web App but don't have phone yet
+			SendPhoneRequest(bot, chatID)
 			return
 		}
 	}

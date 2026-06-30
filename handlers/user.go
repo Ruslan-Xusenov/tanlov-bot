@@ -90,8 +90,8 @@ func handleQullanma(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 
 func handleBallarim(bot *tgbotapi.BotAPI, chatID, userID int64) {
 	var daily, total int
-	db.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE referred_by = $1 AND referral_status = 1 AND created_at >= CURRENT_DATE`, userID).Scan(&daily)
-	db.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE referred_by = $1 AND referral_status = 1`, userID).Scan(&total)
+	db.DB.QueryRow(`SELECT referral_count FROM users WHERE id = $1`, userID).Scan(&daily)
+	db.DB.QueryRow(`SELECT total_referral_count FROM users WHERE id = $1`, userID).Scan(&total)
 	send(bot, chatID, fmt.Sprintf("👥 Siz chaqirgan foydalanuvchilar:\n\n📅 Bugun: <b>%d ta</b>\n🌐 Jami: <b>%d ta</b>", daily, total))
 }
 
@@ -178,9 +178,9 @@ func handleRatingSelection(bot *tgbotapi.BotAPI, chatID int64, userID int64, isD
 func getScore(userID int64, isDaily bool) int {
 	var count int
 	if isDaily {
-		db.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE referred_by = $1 AND referral_status = 1 AND created_at >= CURRENT_DATE`, userID).Scan(&count)
+		db.DB.QueryRow(`SELECT referral_count FROM users WHERE id = $1`, userID).Scan(&count)
 	} else {
-		db.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE referred_by = $1 AND referral_status = 1`, userID).Scan(&count)
+		db.DB.QueryRow(`SELECT total_referral_count FROM users WHERE id = $1`, userID).Scan(&count)
 	}
 	return count
 }

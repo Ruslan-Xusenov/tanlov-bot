@@ -185,12 +185,12 @@ func UserExists(id int64) (bool, error) {
 func GetTopReferrersDaily(limit int) ([]User, error) {
 	rows, err := DB.Query(`
 		SELECT u.id, u.username, u.full_name, u.phone, u.referred_by,
-			(SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1 AND r.created_at >= CURRENT_DATE) as daily_count,
-			(SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1) as total_count,
+			u.referral_count as daily_count,
+			u.total_referral_count as total_count,
 			u.referral_status, u.is_admin, u.is_active, u.last_active, u.created_at, u.extra_phone, u.is_daily_winner
 		FROM users u
 		WHERE u.is_daily_winner = 0 AND u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
-		ORDER BY daily_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
+		ORDER BY u.referral_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
 		LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
@@ -212,12 +212,12 @@ func GetTopReferrersDaily(limit int) ([]User, error) {
 func GetTopReferrersTotal(limit int) ([]User, error) {
 	rows, err := DB.Query(`
 		SELECT u.id, u.username, u.full_name, u.phone, u.referred_by,
-			(SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1 AND r.created_at >= CURRENT_DATE) as daily_count,
-			(SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1) as total_count,
+			u.referral_count as daily_count,
+			u.total_referral_count as total_count,
 			u.referral_status, u.is_admin, u.is_active, u.last_active, u.created_at, u.extra_phone, u.is_daily_winner
 		FROM users u
 		WHERE u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
-		ORDER BY total_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
+		ORDER BY u.total_referral_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
 		LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err
 		queryFifth = `
 			SELECT COALESCE(
 				(SELECT cnt FROM (
-					SELECT (SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1 AND r.created_at >= CURRENT_DATE) as cnt
+					SELECT u.referral_count as cnt
 					FROM users u
 					WHERE u.is_daily_winner = 0 AND u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
 					ORDER BY cnt DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
@@ -276,7 +276,7 @@ func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err
 		queryFifth = `
 			SELECT COALESCE(
 				(SELECT cnt FROM (
-					SELECT (SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1) as cnt
+					SELECT u.total_referral_count as cnt
 					FROM users u
 					WHERE u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
 					ORDER BY cnt DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
@@ -299,7 +299,7 @@ func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err
 		queryRank = `
 			WITH RankedUsers AS (
 				SELECT u.id,
-					RANK() OVER(ORDER BY (SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1 AND r.created_at >= CURRENT_DATE) DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC) as rank
+					RANK() OVER(ORDER BY u.referral_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC) as rank
 				FROM users u
 				WHERE u.is_daily_winner = 0 AND u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
 			)
@@ -308,7 +308,7 @@ func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err
 		queryRank = `
 			WITH RankedUsers AS (
 				SELECT u.id,
-					RANK() OVER(ORDER BY (SELECT COUNT(*) FROM users r WHERE r.referred_by = u.id AND r.referral_status = 1) DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC) as rank
+					RANK() OVER(ORDER BY u.total_referral_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC) as rank
 				FROM users u
 				WHERE u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
 			)

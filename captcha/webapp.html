@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konkurs botiga ro'yxatdan o'tish</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            padding: 16px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+        }
+        
+        .container {
+            max-width: 420px;
+            width: 100%;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 28px 24px;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+            20%, 40%, 60%, 80% { transform: translateX(4px); }
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            display: block;
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        .header h1 {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+        
+        .header p {
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .form-group {
+            margin-bottom: 18px;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .form-group:nth-child(2) { animation-delay: 0.1s; }
+        .form-group:nth-child(3) { animation-delay: 0.2s; }
+        .form-group:nth-child(4) { animation-delay: 0.3s; }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            font-size: 16px;
+            color: #fff;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .form-group select {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23ffffff80'%3E%3Cpath d='M4.5 6l3.5 4 3.5-4z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 40px;
+        }
+
+        .form-group select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #7c5cfc;
+            background: rgba(124, 92, 252, 0.08);
+            box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.15);
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .form-group input.error-field,
+        .form-group select.error-field {
+            border-color: #ff4757;
+            animation: shake 0.4s ease;
+        }
+
+        /* Captcha Section */
+        .captcha-section {
+            margin-bottom: 22px;
+            padding: 18px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            animation: fadeIn 0.7s ease-out;
+        }
+
+        .captcha-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .captcha-header .shield {
+            font-size: 20px;
+        }
+
+        .captcha-header span {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .captcha-image-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .captcha-image-wrapper img {
+            flex: 1;
+            max-width: 100%;
+            height: 60px;
+            border-radius: 10px;
+            background: #fff;
+            object-fit: contain;
+        }
+
+        .captcha-refresh {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(124, 92, 252, 0.15);
+            border: 1px solid rgba(124, 92, 252, 0.3);
+            color: #a78bfa;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .captcha-refresh:hover {
+            background: rgba(124, 92, 252, 0.25);
+            transform: rotate(90deg);
+        }
+
+        .captcha-refresh:active {
+            transform: rotate(180deg) scale(0.95);
+        }
+
+        .captcha-refresh.loading {
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .captcha-input input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            font-size: 20px;
+            color: #fff;
+            text-align: center;
+            letter-spacing: 8px;
+            font-weight: 600;
+            font-family: 'Inter', monospace;
+            transition: all 0.3s ease;
+        }
+
+        .captcha-input input:focus {
+            outline: none;
+            border-color: #7c5cfc;
+            background: rgba(124, 92, 252, 0.08);
+            box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.15);
+        }
+
+        .captcha-input input::placeholder {
+            color: rgba(255, 255, 255, 0.2);
+            letter-spacing: 2px;
+            font-size: 14px;
+            font-weight: 400;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #7c5cfc 0%, #a855f7 50%, #ec4899 100%);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transition: left 0.5s;
+        }
+
+        .submit-btn:hover::before {
+            left: 100%;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(124, 92, 252, 0.4);
+        }
+        
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .submit-btn.loading {
+            pointer-events: none;
+        }
+
+        .submit-btn .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin: 0 auto;
+        }
+
+        .submit-btn.loading .btn-text {
+            display: none;
+        }
+
+        .submit-btn.loading .spinner {
+            display: block;
+        }
+        
+        .error-text {
+            color: #ff6b81;
+            font-size: 12px;
+            margin-top: 5px;
+            min-height: 16px;
+        }
+
+        .message-box {
+            margin-top: 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .message-box.success {
+            display: block;
+            background: rgba(46, 213, 115, 0.12);
+            border: 1px solid rgba(46, 213, 115, 0.3);
+            color: #2ed573;
+        }
+
+        .message-box.error {
+            display: block;
+            background: rgba(255, 71, 87, 0.12);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            color: #ff6b81;
+            white-space: pre-line;
+        }
+
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="icon">🎉</span>
+            <h1>Konkursga ro'yxatdan o'tish</h1>
+            <p>Ma'lumotlaringizni to'ldiring va captcha kodini kiriting</p>
+        </div>
+        
+        <form id="registrationForm" autocomplete="off">
+            <div class="form-group">
+                <label for="firstName">Ismingiz *</label>
+                <input type="text" id="firstName" name="firstName" placeholder="Ismingizni kiriting" required>
+                <div class="error-text" id="firstNameError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="lastName">Familiyangiz *</label>
+                <input type="text" id="lastName" name="lastName" placeholder="Familiyangizni kiriting" required>
+                <div class="error-text" id="lastNameError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="region">Viloyatingiz *</label>
+                <select id="region" name="region" required>
+                    <option value="">Viloyatni tanlang</option>
+                    <option value="Andijon">Andijon</option>
+                    <option value="Buxoro">Buxoro</option>
+                    <option value="Fargona">Farg'ona</option>
+                    <option value="Jizzax">Jizzax</option>
+                    <option value="Xorazm">Xorazm</option>
+                    <option value="Namangan">Namangan</option>
+                    <option value="Navoiy">Navoiy</option>
+                    <option value="Qashqadaryo">Qashqadaryo</option>
+                    <option value="Qoraqalpogiston">Qoraqalpog'iston</option>
+                    <option value="Samarqand">Samarqand</option>
+                    <option value="Sirdaryo">Sirdaryo</option>
+                    <option value="Surxondaryo">Surxondaryo</option>
+                    <option value="Toshkent viloyati">Toshkent viloyati</option>
+                    <option value="Toshkent shahri">Toshkent shahri</option>
+                </select>
+                <div class="error-text" id="regionError"></div>
+            </div>
+
+            <div class="divider"></div>
+            
+            <!-- Captcha Section -->
+            <div class="captcha-section">
+                <div class="captcha-header">
+                    <span class="shield">🛡️</span>
+                    <span>Xavfsizlik tekshiruvi</span>
+                </div>
+                <div class="captcha-image-wrapper">
+                    <img id="captchaImage" src="" alt="Captcha" />
+                    <button type="button" class="captcha-refresh" id="refreshCaptcha" title="Yangilash">🔄</button>
+                </div>
+                <div class="captcha-input">
+                    <input type="text" id="captchaAnswer" maxlength="5" placeholder="5 ta raqam" inputmode="numeric" autocomplete="off">
+                </div>
+                <div class="error-text" id="captchaError"></div>
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <span class="btn-text">✅ Ro'yxatdan o'tish</span>
+                <span class="spinner"></span>
+            </button>
+            
+            <div class="message-box" id="message"></div>
+        </form>
+    </div>
+
+    <script>
+        // Telegram Web App init
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        // Apply Telegram theme
+        document.body.style.backgroundColor = tg.themeParams.bg_color || '';
+
+        let user = tg.initDataUnsafe?.user;
+        let captchaId = '';
+
+        // Base URL for API calls
+        const BASE_URL = window.location.origin;
+
+        // Load captcha on page load
+        loadCaptcha();
+
+        // Refresh captcha button
+        document.getElementById('refreshCaptcha').addEventListener('click', function() {
+            this.classList.add('loading');
+            loadCaptcha().finally(() => {
+                setTimeout(() => this.classList.remove('loading'), 300);
+            });
+        });
+
+        // Load captcha from server
+        async function loadCaptcha() {
+            try {
+                const response = await fetch(BASE_URL + '/api/captcha');
+                const data = await response.json();
+                captchaId = data.id;
+                document.getElementById('captchaImage').src = data.image;
+                document.getElementById('captchaAnswer').value = '';
+                document.getElementById('captchaError').textContent = '';
+            } catch (error) {
+                console.error('Captcha loading error:', error);
+                document.getElementById('captchaError').textContent = 'Captcha yuklanmadi. Sahifani yangilang.';
+            }
+        }
+
+        // Clear errors on input
+        document.querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('input', function() {
+                this.classList.remove('error-field');
+                const errorEl = document.getElementById(this.id + 'Error');
+                if (errorEl) errorEl.textContent = '';
+            });
+        });
+
+        // Form submission
+        document.getElementById('registrationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const region = document.getElementById('region').value;
+            const captchaAnswer = document.getElementById('captchaAnswer').value.trim();
+            
+            // Validation
+            let hasError = false;
+            
+            if (firstName.length < 1) {
+                setError('firstName', 'Ismni kiriting');
+                hasError = true;
+            }
+            
+            if (lastName.length < 1) {
+                setError('lastName', 'Familiyani kiriting');
+                hasError = true;
+            }
+            
+            if (!region) {
+                setError('region', 'Viloyatni tanlang');
+                hasError = true;
+            }
+
+            if (captchaAnswer.length < 5) {
+                setError('captcha', 'Captcha kodini kiriting (5 ta raqam)');
+                hasError = true;
+            }
+            
+            if (hasError) return;
+
+            if (!user) {
+                showMessage('error', 'Telegram orqali kirish talab etiladi!');
+                return;
+            }
+            
+            // Show loading state
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+            
+            const data = {
+                user_id: user.id,
+                first_name: firstName,
+                last_name: lastName,
+                region: region,
+                username: user.username || '',
+                device_info: navigator.userAgent,
+                captcha_id: captchaId,
+                captcha_answer: captchaAnswer
+            };
+            
+            try {
+                const response = await fetch(BASE_URL + '/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('success', '✅ ' + result.message);
+                    // Disable form
+                    document.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
+                    // Close Web App after delay
+                    setTimeout(() => {
+                        tg.close();
+                    }, 2000);
+                } else {
+                    showMessage('error', result.message);
+                    // Reload captcha on error
+                    loadCaptcha();
+                }
+            } catch (error) {
+                showMessage('error', 'Xatolik yuz berdi. Qayta urinib ko\'ring.');
+                loadCaptcha();
+            } finally {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        });
+
+        function setError(fieldName, message) {
+            const field = document.getElementById(fieldName);
+            const errorEl = document.getElementById(fieldName + 'Error');
+            if (field) field.classList.add('error-field');
+            if (errorEl) errorEl.textContent = message;
+        }
+
+        function showMessage(type, text) {
+            const msgEl = document.getElementById('message');
+            msgEl.className = 'message-box ' + type;
+            msgEl.textContent = text;
+        }
+    </script>
+</body>
+</html>

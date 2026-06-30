@@ -27,22 +27,26 @@ type User struct {
 	ExtraPhone         string
 	IsDailyWinner      int
 	CaptchaPassed      int
+	WebAppPassed       int
+	Region             string
+	DeviceID           string
+	IPAddress          string
 }
 
 func GetUser(id int64) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner, captcha_passed FROM users WHERE id = $1`, id)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner, captcha_passed, web_app_passed FROM users WHERE id = $1`, id)
 	return scanUser(row)
 }
 
 func GetUserByUsername(username string) (*User, error) {
-	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner, captcha_passed FROM users WHERE LOWER(username) = LOWER($1)`, username)
+	row := DB.QueryRow(`SELECT id, username, full_name, phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, extra_phone, is_daily_winner, captcha_passed, web_app_passed FROM users WHERE LOWER(username) = LOWER($1)`, username)
 	return scanUser(row)
 }
 
 func scanUser(row *sql.Row) (*User, error) {
 	u := &User{}
 	err := row.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
-		&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.ExtraPhone, &u.IsDailyWinner, &u.CaptchaPassed)
+		&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.ExtraPhone, &u.IsDailyWinner, &u.CaptchaPassed, &u.WebAppPassed)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +238,7 @@ func GetTopReferrersTotal(limit int) ([]User, error) {
 
 func GetAllUsersForExport() ([]User, error) {
 	rows, err := DB.Query(`
-		SELECT id, username, full_name, phone, extra_phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, is_daily_winner
+		SELECT id, username, full_name, phone, extra_phone, referred_by, referral_count, total_referral_count, referral_status, is_admin, is_active, last_active, created_at, is_daily_winner, ip_address, web_app_passed
 		FROM users
 		ORDER BY total_referral_count DESC
 	`)
@@ -246,7 +250,7 @@ func GetAllUsersForExport() ([]User, error) {
 	for rows.Next() {
 		u := User{}
 		err = rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Phone, &u.ExtraPhone, &u.ReferredBy, &u.ReferralCount, &u.TotalReferralCount, &u.ReferralStatus,
-			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.IsDailyWinner)
+			&u.IsAdmin, &u.IsActive, &u.LastActive, &u.CreatedAt, &u.IsDailyWinner, &u.IPAddress, &u.WebAppPassed)
 		if err != nil {
 			return nil, err
 		}
@@ -531,4 +535,66 @@ func IsUserBanned(userID int64) bool {
 		return false
 	}
 	return isBanned
+}
+
+// RegisterFromWebApp registers a user from the Web App with region, device_id, and ip_address
+func RegisterFromWebApp(userID int64, firstName, lastName, region, username, deviceID, ipAddress string) error {
+	fullName := firstName + " " + lastName
+	_, err := DB.Exec(`
+		UPDATE users SET
+			full_name = $2,
+			region = $3,
+			device_id = $4,
+			ip_address = $5,
+			username = $6,
+			captcha_passed = 1,
+			web_app_passed = 1,
+			last_active = CURRENT_TIMESTAMP
+		WHERE id = $1
+	`, userID, fullName, region, deviceID, ipAddress, username)
+	return err
+}
+
+// CheckIPExists checks if the given IP address has already been used for registration
+func CheckIPExists(ip string, userID int64) (bool, int64, string, error) {
+	var existingID int64
+	var existingName string
+	err := DB.QueryRow(`
+		SELECT id, full_name FROM users 
+		WHERE ip_address = $1 AND id != $2 AND ip_address != '' AND phone != ''
+	`, ip, userID).Scan(&existingID, &existingName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, 0, "", nil
+		}
+		return false, 0, "", err
+	}
+	return true, existingID, existingName, nil
+}
+
+// CheckDeviceExists checks if the given device ID has already been used for registration
+func CheckDeviceExists(deviceID string, userID int64) (bool, int64, string, error) {
+	var existingID int64
+	var existingName string
+	err := DB.QueryRow(`
+		SELECT id, full_name FROM users 
+		WHERE device_id = $1 AND id != $2 AND device_id != '' AND phone != ''
+	`, deviceID, userID).Scan(&existingID, &existingName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, 0, "", nil
+		}
+		return false, 0, "", err
+	}
+	return true, existingID, existingName, nil
+}
+
+// IsUserRegistered checks if user has already completed Web App registration (has region set)
+func IsUserRegistered(userID int64) bool {
+	var region string
+	err := DB.QueryRow(`SELECT COALESCE(region, '') FROM users WHERE id = $1`, userID).Scan(&region)
+	if err != nil {
+		return false
+	}
+	return region != ""
 }

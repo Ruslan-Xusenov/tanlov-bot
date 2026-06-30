@@ -69,11 +69,23 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 		db.AddAdmin(userID, 0)
 	}
 
-	// ── Check if User Needs Registration (Captcha -> Sub -> Phone) ──
+	// ── Check if User Needs Registration (Web App -> Phone) ──
 	user, err := db.GetUser(userID)
 	if err == nil && user != nil && user.Phone == "" {
-		if !HasPassedCaptcha(userID) {
-			GenerateAndSendCaptcha(bot, chatID, userID)
+		if !db.IsUserRegistered(userID) {
+			// User needs to register via Web App first
+			// Check subscription gate first
+			ok, missing, err := CheckUserSubscriptions(bot, userID, false)
+			if err != nil {
+				log.Printf("[start] sub check error for user %d: %v", userID, err)
+			}
+			if !ok {
+				kb := BuildSubscriptionKeyboard(missing)
+				sendWelcome(bot, chatID, kb)
+				return
+			}
+			// Send Web App registration button
+			SendWebAppButton(bot, chatID)
 			return
 		}
 	}

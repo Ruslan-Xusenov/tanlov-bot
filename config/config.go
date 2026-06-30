@@ -12,6 +12,8 @@ type Config struct {
 	BotToken     string
 	SuperAdminID int64
 	DatabaseURL  string
+	WebAppPort   string
+	WebAppURL    string
 }
 
 func Load() *Config {
@@ -35,9 +37,21 @@ func Load() *Config {
 		dbURL = "postgres://postgres:postgres@localhost:5432/tanlov?sslmode=disable"
 	}
 
+	webAppPort := os.Getenv("WEBAPP_PORT")
+	if webAppPort == "" {
+		webAppPort = "8080"
+	}
+
+	webAppURL := os.Getenv("WEBAPP_URL")
+	if webAppURL == "" {
+		webAppURL = "https://localhost:8080"
+	}
+
 	return &Config{
 		BotToken:     token,
 		SuperAdminID: adminID,
 		DatabaseURL:  dbURL,
+		WebAppPort:   webAppPort,
+		WebAppURL:    webAppURL,
 	}
 }

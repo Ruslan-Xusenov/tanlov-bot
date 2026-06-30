@@ -11,6 +11,8 @@ services:
       - DATABASE_URL=postgres://postgres:kali@db:5432/tanlov?sslmode=disable
     depends_on:
       - db
+    ports:
+      - "8085:8080"
     
   db:
     image: postgres:15-alpine

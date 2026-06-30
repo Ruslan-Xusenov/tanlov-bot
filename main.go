@@ -32,6 +32,7 @@ func main() {
 		BotUsername:  bot.Self.UserName,
 	}
 
+	go handlers.StartWebAppServer(cfg, bot)
 	go runDailyRewardJob(bot)
 	go runDailyReportJob()
 

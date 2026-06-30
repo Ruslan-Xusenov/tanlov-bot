@@ -20,7 +20,8 @@ WORKDIR /root/
 
 # Qurilgan dasturni va rasmni nusxalash
 COPY --from=builder /app/bot_app .
-COPY picture.jpg .
+COPY --from=builder /app/picture.jpg .
+COPY --from=builder /app/captcha ./captcha
 
 # Dasturni ishga tushirish
 CMD ["./bot_app"]

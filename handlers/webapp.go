@@ -172,18 +172,9 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check IP address
-	ipExists, _, existingName, err := db.CheckIPExists(clientIP, req.UserID)
-	if err != nil {
-		log.Printf("[webapp] IP check error: %v", err)
-	}
-	if ipExists {
-		jsonResponse(w, RegisterResponse{
-			Success: false,
-			Message: fmt.Sprintf("Bu IP manzildan allaqachon ro'yxatdan o'tilgan!\n\nAvval ro'yxatdan o'tgan: %s\n\nHar bir qurilmadan faqat bitta akkaunt ro'yxatdan o'ta oladi!", existingName),
-		})
-		return
-	}
+	// (Disabled IP check because mobile networks use Carrier-Grade NAT.
+	// This means thousands of users share the exact same public IP address.
+	// Blocking by IP causes massive false positives and prevents legitimate users from registering.)
 
 	// Generate device ID from user-agent
 	deviceID := createDeviceID(req.DeviceInfo, clientIP)
@@ -274,23 +265,10 @@ func getClientIP(r *http.Request) string {
 
 // createDeviceID generates a SHA-256 hash from device info
 func createDeviceID(deviceInfo, ip string) string {
-	parts := []string{}
-
-	// Extract key device characteristics
-	if strings.Contains(deviceInfo, "Android") {
-		parts = append(parts, "Android")
-	} else if strings.Contains(deviceInfo, "iPhone") {
-		parts = append(parts, "iPhone")
-	} else if strings.Contains(deviceInfo, "iPad") {
-		parts = append(parts, "iPad")
-	}
-
-	// Add the full user-agent for uniqueness
-	parts = append(parts, deviceInfo)
-	parts = append(parts, ip)
-
-	data := strings.Join(parts, "|")
-	hash := sha256.Sum256([]byte(data))
+	// We no longer mix the IP into the device hash, because IP addresses change 
+	// frequently on mobile networks and many users share the same NAT IP.
+	// The deviceInfo string now contains a highly unique localStorage UUID.
+	hash := sha256.Sum256([]byte(deviceInfo))
 	return fmt.Sprintf("%x", hash)
 }
 

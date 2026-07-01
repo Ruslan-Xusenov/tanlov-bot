@@ -527,13 +527,20 @@
             submitBtn.classList.add('loading');
             submitBtn.disabled = true;
             
+            // Get or create device ID using localStorage for persistent device fingerprinting
+            let localDeviceId = localStorage.getItem('unique_device_id');
+            if (!localDeviceId) {
+                localDeviceId = 'dev_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                localStorage.setItem('unique_device_id', localDeviceId);
+            }
+
             const data = {
                 user_id: user.id,
                 first_name: firstName,
                 last_name: lastName,
                 region: region,
                 username: user.username || '',
-                device_info: navigator.userAgent,
+                device_info: localDeviceId + "|" + navigator.userAgent,
                 captcha_id: captchaId,
                 captcha_answer: captchaAnswer
             };

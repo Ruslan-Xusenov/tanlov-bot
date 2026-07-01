@@ -265,10 +265,16 @@ func getClientIP(r *http.Request) string {
 
 // createDeviceID generates a SHA-256 hash from device info
 func createDeviceID(deviceInfo, ip string) string {
-	// We no longer mix the IP into the device hash, because IP addresses change 
-	// frequently on mobile networks and many users share the same NAT IP.
-	// The deviceInfo string now contains a highly unique localStorage UUID.
-	hash := sha256.Sum256([]byte(deviceInfo))
+	// The deviceInfo string now comes as: localDeviceId + "|" + hardwareFingerprint
+	// localDeviceId is isolated per Telegram account, so it changes for each account on the same phone.
+	// To block multiple accounts on the SAME physical phone, we must ONLY hash the hardware fingerprint!
+	parts := strings.SplitN(deviceInfo, "|", 2)
+	hardwareFp := deviceInfo
+	if len(parts) == 2 {
+		hardwareFp = parts[1]
+	}
+
+	hash := sha256.Sum256([]byte(hardwareFp))
 	return fmt.Sprintf("%x", hash)
 }
 

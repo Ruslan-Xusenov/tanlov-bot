@@ -483,6 +483,53 @@
             });
         });
 
+        // Hardware fingerprinting for cross-account fraud prevention
+        async function getDeviceFingerprint() {
+            return new Promise(resolve => {
+                let fp = "";
+                
+                // Basic specs
+                fp += navigator.userAgent + "|";
+                fp += navigator.language + "|";
+                fp += navigator.hardwareConcurrency + "|";
+                fp += navigator.deviceMemory + "|";
+                fp += navigator.platform + "|";
+                fp += screen.width + "x" + screen.height + "x" + screen.colorDepth + "x" + screen.pixelDepth + "|";
+                fp += Intl.DateTimeFormat().resolvedOptions().timeZone + "|";
+                
+                // Canvas fingerprint
+                try {
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    ctx.textBaseline = "top";
+                    ctx.font = "14px 'Arial'";
+                    ctx.textBaseline = "alphabetic";
+                    ctx.fillStyle = "#f60";
+                    ctx.fillRect(125, 1, 62, 20);
+                    ctx.fillStyle = "#069";
+                    ctx.fillText("TanlovBotFingerprint, 😃", 2, 15);
+                    ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+                    ctx.fillText("TanlovBotFingerprint, 😃", 4, 17);
+                    fp += canvas.toDataURL() + "|";
+                } catch(e) { fp += "nocanvas|"; }
+                
+                // WebGL fingerprint (GPU)
+                try {
+                    const gl = document.createElement("canvas").getContext("webgl");
+                    if (gl) {
+                        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+                        if (debugInfo) {
+                            fp += gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) + "|";
+                            fp += gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) + "|";
+                        }
+                    }
+                } catch(e) { fp += "nowebgl|"; }
+
+                // Return raw string, we'll hash it on the server
+                resolve(fp);
+            });
+        }
+
         // Form submission
         document.getElementById('registrationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -527,12 +574,15 @@
             submitBtn.classList.add('loading');
             submitBtn.disabled = true;
             
-            // Get or create device ID using localStorage for persistent device fingerprinting
+            // Get or create device ID using localStorage for persistent device fingerprinting (per-account)
             let localDeviceId = localStorage.getItem('unique_device_id');
             if (!localDeviceId) {
                 localDeviceId = 'dev_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
                 localStorage.setItem('unique_device_id', localDeviceId);
             }
+
+            // Get hardware fingerprint (cross-account on same physical phone)
+            const hardwareFp = await getDeviceFingerprint();
 
             const data = {
                 user_id: user.id,
@@ -540,7 +590,7 @@
                 last_name: lastName,
                 region: region,
                 username: user.username || '',
-                device_info: localDeviceId + "|" + navigator.userAgent,
+                device_info: localDeviceId + "|" + hardwareFp,
                 captcha_id: captchaId,
                 captcha_answer: captchaAnswer
             };

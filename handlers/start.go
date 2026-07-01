@@ -109,7 +109,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 	}
 
 	// ── Send welcome & Complete Registration ──
-	menu := getMenuForUser(userID)
+	menu := GetMenuForUser(userID)
 	sendWelcome(bot, chatID, menu)
 	CompleteRegistrationFlow(bot, chatID, userID, username, fullName, botUsername)
 }
@@ -197,7 +197,7 @@ func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
 func SendMenu(bot *tgbotapi.BotAPI, chatID int64) {
 	menuMsg := tgbotapi.NewMessage(chatID, "📋 <b>Asosiy menyu:</b>")
 	menuMsg.ParseMode = "HTML"
-	menuMsg.ReplyMarkup = getMenuForUser(chatID)
+	menuMsg.ReplyMarkup = GetMenuForUser(chatID)
 	bot.Send(menuMsg)
 }
 
@@ -216,7 +216,7 @@ func CompleteRegistrationFlow(bot *tgbotapi.BotAPI, chatID, userID int64, userna
 	}
 
 	// 2. Send Qo'llanma with the main menu attached
-	menu := getMenuForUser(userID)
+	menu := GetMenuForUser(userID)
 	handleQullanma(bot, chatID, menu)
 }
 
@@ -229,7 +229,7 @@ func sendTextWelcome(bot *tgbotapi.BotAPI, chatID int64, text string, markup int
 	bot.Send(msg)
 }
 
-func getMenuForUser(userID int64) tgbotapi.ReplyKeyboardMarkup {
+func GetMenuForUser(userID int64) tgbotapi.ReplyKeyboardMarkup {
 	if db.IsAdmin(userID) {
 		return adminMenuKeyboard()
 	}

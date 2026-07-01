@@ -195,9 +195,15 @@ func (r *Router) Route(update tgbotapi.Update) {
 				log.Printf("[router] failed to save phone: %v", err)
 			}
 			
-			rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!\n\n📞 Iltimos, doim foydalanadigan telefon raqamingizni kiriting.\n\nAgar sizga yoki siz taklif qilgan do‘stingizga yutuq chiqsa, g‘olibni tasdiqlash uchun siz bilan shaxsan bog‘lanamiz.")
-			rmMsg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
-			r.Bot.Send(rmMsg)
+			user, _ := db.GetUser(userID)
+			if user != nil && user.ExtraPhone != "" {
+				sendWelcome(r.Bot, chatID, GetMenuForUser(userID))
+				CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
+			} else {
+				rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!\n\n📞 Iltimos, doim foydalanadigan telefon raqamingizni kiriting.\n\nAgar sizga yoki siz taklif qilgan do‘stingizga yutuq chiqsa, g‘olibni tasdiqlash uchun siz bilan shaxsan bog‘lanamiz.")
+				rmMsg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+				r.Bot.Send(rmMsg)
+			}
 		} else {
 			send(r.Bot, chatID, "⚠️ Iltimos, o'zingizning raqamingizni yuboring. Boshqa profil raqami qabul qilinmaydi.")
 		}

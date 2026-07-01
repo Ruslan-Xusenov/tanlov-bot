@@ -195,15 +195,8 @@ func (r *Router) Route(update tgbotapi.Update) {
 				log.Printf("[router] failed to save phone: %v", err)
 			}
 			
-			user, _ := db.GetUser(userID)
-			if user != nil && user.ExtraPhone != "" {
-				sendWelcome(r.Bot, chatID, GetMenuForUser(userID))
-				CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
-			} else {
-				rmMsg := tgbotapi.NewMessage(chatID, "✅ Raqamingiz qabul qilindi!\n\n📞 Iltimos, doim foydalanadigan telefon raqamingizni kiriting.\n\nAgar sizga yoki siz taklif qilgan do‘stingizga yutuq chiqsa, g‘olibni tasdiqlash uchun siz bilan shaxsan bog‘lanamiz.")
-				rmMsg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
-				r.Bot.Send(rmMsg)
-			}
+			sendWelcome(r.Bot, chatID, GetMenuForUser(userID))
+			CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
 		} else {
 			send(r.Bot, chatID, "⚠️ Iltimos, o'zingizning raqamingizni yuboring. Boshqa profil raqami qabul qilinmaydi.")
 		}
@@ -218,55 +211,6 @@ func (r *Router) Route(update tgbotapi.Update) {
 				send(r.Bot, chatID, "⚠️ Iltimos, ro'yxatdan o'tish uchun \"☎️ Raqamni ulashish\" tugmasini bosing.")
 				return
 			}
-		} else if user.ExtraPhone == "" {
-			// They have phone, but no extra phone. Expecting text input.
-			if !msg.IsCommand() && msg.Text != "" {
-				text := strings.TrimSpace(msg.Text)
-				// Remove common formatting characters
-				cleaned := strings.ReplaceAll(text, " ", "")
-				cleaned = strings.ReplaceAll(cleaned, "-", "")
-				cleaned = strings.ReplaceAll(cleaned, "(", "")
-				cleaned = strings.ReplaceAll(cleaned, ")", "")
-				cleaned = strings.TrimPrefix(cleaned, "+")
-
-				// Validate: must be digits only after cleaning
-				if !isNumeric(cleaned) || len(cleaned) < 9 {
-					send(r.Bot, chatID, "⚠️ Iltimos, haqiqiy telefon raqamingizni kiriting.\n\nMasalan: 901234567 yoki 998901234567")
-					return
-				}
-
-				// Normalize to 998XXXXXXXXX format
-				if len(cleaned) == 9 {
-					cleaned = "998" + cleaned
-				}
-				if !strings.HasPrefix(cleaned, "998") || len(cleaned) != 12 {
-					send(r.Bot, chatID, "⚠️ Faqat O'zbekiston (+998) raqamini kiriting.\n\nMasalan: 901234567 yoki 998901234567")
-					return
-				}
-
-				// Check it's not the same as primary phone
-				primaryCleaned := strings.ReplaceAll(user.Phone, "+", "")
-				primaryCleaned = strings.ReplaceAll(primaryCleaned, " ", "")
-				if cleaned == primaryCleaned {
-					send(r.Bot, chatID, "⚠️ Bu raqam sizning asosiy raqamingiz bilan bir xil. Iltimos, boshqa raqam kiriting.")
-					return
-				}
-
-				// Re-verify channel subscription before approving
-				subOk, missing, _ := CheckUserSubscriptions(r.Bot, userID, false)
-				if !subOk {
-					kb := BuildSubscriptionKeyboard(missing)
-					sendWelcome(r.Bot, chatID, kb)
-					return
-				}
-
-				db.UpdateUserExtraPhone(userID, cleaned)
-				send(r.Bot, chatID, "✅ Qo'shimcha raqam qabul qilindi!")
-				CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
-			} else {
-				send(r.Bot, chatID, "📞 Iltimos, doim foydalanadigan telefon raqamingizni yozma ravishda kiriting.\n\nMasalan: 901234567")
-			}
-			return
 		}
 	}
 

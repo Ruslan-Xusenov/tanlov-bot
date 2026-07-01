@@ -222,22 +222,16 @@ func sendPhoneRequestViaBot(userID int64) {
 
 	user, err := db.GetUser(userID)
 	if err == nil && user != nil {
-		if user.Phone != "" && user.ExtraPhone != "" {
-			// Already fully registered
+		if user.Phone != "" {
+			// Already fully registered (since we only require 1 phone number now)
 			menu := GetMenuForUser(userID)
 			msg := tgbotapi.NewMessage(userID, "✅ <b>Muvaffaqiyatli ro'yxatdan o'tdingiz!</b>\n\nSiz allaqachon to'liq ro'yxatdan o'tgansiz.")
 			msg.ParseMode = "HTML"
 			msg.ReplyMarkup = menu
 			webAppBot.Send(msg)
 			
-			// We need username and fullname. Since we don't have them in this context easily, we can skip or get from db user.
+			// We need username and fullname. Since we don't have them in this context easily, we can get from db user.
 			CompleteRegistrationFlow(webAppBot, userID, userID, user.Username, user.FullName, webAppCfg.BotUsername)
-			return
-		} else if user.Phone != "" && user.ExtraPhone == "" {
-			msg := tgbotapi.NewMessage(userID, "✅ <b>Muvaffaqiyatli ro'yxatdan o'tdingiz!</b>\n\n📞 Iltimos, doim foydalanadigan qo'shimcha telefon raqamingizni yozma ravishda kiriting.")
-			msg.ParseMode = "HTML"
-			msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
-			webAppBot.Send(msg)
 			return
 		}
 	}

@@ -101,10 +101,6 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 		if user.Phone == "" {
 			SendPhoneRequest(bot, chatID)
 			return
-		} else if user.ExtraPhone == "" {
-			msg := tgbotapi.NewMessage(chatID, "📞 Iltimos, doim foydalanadigan telefon raqamingizni yozma ravishda kiriting.")
-			bot.Send(msg)
-			return
 		}
 	}
 

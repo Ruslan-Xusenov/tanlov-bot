@@ -231,7 +231,7 @@ func sendPhoneRequestViaBot(userID int64) {
 			webAppBot.Send(msg)
 			
 			// We need username and fullname. Since we don't have them in this context easily, we can get from db user.
-			CompleteRegistrationFlow(webAppBot, userID, userID, user.Username, user.FullName, webAppCfg.BotUsername)
+			CompleteRegistrationFlow(webAppBot, userID, userID, user.Username, user.FullName, webAppBot.Self.UserName)
 			return
 		}
 	}

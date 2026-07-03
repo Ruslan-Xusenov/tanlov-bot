@@ -180,7 +180,7 @@ func getScore(userID int64, isDaily bool) int {
 	if isDaily {
 		db.DB.QueryRow(`SELECT referral_count FROM users WHERE id = $1`, userID).Scan(&count)
 	} else {
-		db.DB.QueryRow(`SELECT total_referral_count FROM users WHERE id = $1`, userID).Scan(&count)
+		db.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE referred_by = $1 AND referral_status = 1 AND web_app_passed = 1`, userID).Scan(&count)
 	}
 	return count
 }

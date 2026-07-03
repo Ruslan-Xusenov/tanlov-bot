@@ -213,11 +213,17 @@ func GetTopReferrersTotal(limit int) ([]User, error) {
 	rows, err := DB.Query(`
 		SELECT u.id, u.username, u.full_name, u.phone, u.referred_by,
 			u.referral_count as daily_count,
-			u.total_referral_count as total_count,
+			COALESCE(ref_count.webapp_refs, 0) as total_count,
 			u.referral_status, u.is_admin, u.is_active, u.last_active, u.created_at, u.extra_phone, u.is_daily_winner
 		FROM users u
+		LEFT JOIN (
+			SELECT referred_by, COUNT(*) as webapp_refs
+			FROM users
+			WHERE referral_status = 1 AND web_app_passed = 1
+			GROUP BY referred_by
+		) ref_count ON ref_count.referred_by = u.id
 		WHERE u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
-		ORDER BY u.total_referral_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
+		ORDER BY total_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
 		LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
@@ -276,8 +282,14 @@ func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err
 		queryFifth = `
 			SELECT COALESCE(
 				(SELECT cnt FROM (
-					SELECT u.total_referral_count as cnt
+					SELECT COALESCE(ref_count.webapp_refs, 0) as cnt
 					FROM users u
+					LEFT JOIN (
+						SELECT referred_by, COUNT(*) as webapp_refs
+						FROM users
+						WHERE referral_status = 1 AND web_app_passed = 1
+						GROUP BY referred_by
+					) ref_count ON ref_count.referred_by = u.id
 					WHERE u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
 					ORDER BY cnt DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC
 					LIMIT 1 OFFSET 4
@@ -306,13 +318,17 @@ func GetUserRank(userID int64, isDaily bool) (rank int, fifthPlaceScore int, err
 			SELECT rank FROM RankedUsers WHERE id = $1`
 	} else {
 		queryRank = `
-			WITH RankedUsers AS (
-				SELECT u.id,
-					RANK() OVER(ORDER BY u.total_referral_count DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC) as rank
+			SELECT rank FROM (
+				SELECT u.id, RANK() OVER (ORDER BY COALESCE(ref_count.webapp_refs, 0) DESC, LOWER(COALESCE(NULLIF(u.username, ''), u.full_name)) ASC) as rank
 				FROM users u
+				LEFT JOIN (
+					SELECT referred_by, COUNT(*) as webapp_refs
+					FROM users
+					WHERE referral_status = 1 AND web_app_passed = 1
+					GROUP BY referred_by
+				) ref_count ON ref_count.referred_by = u.id
 				WHERE u.is_active = 1 AND (u.banned_until IS NULL OR u.banned_until <= NOW())
-			)
-			SELECT rank FROM RankedUsers WHERE id = $1`
+			) sub WHERE id = $1`
 	}
 	err = DB.QueryRow(queryRank, userID).Scan(&rank)
 	if err != nil && err == sql.ErrNoRows && isDaily {

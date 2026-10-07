@@ -1,4 +1,4 @@
-UPDATE bot_settings SET value = '🎉 <b>"Oltinsoy City"</b> tanlov botiga xush kelibsiz!
+UPDATE bot_settings SET value = '🎉 <b>"Saodat Shahri Asaka"</b> tanlov botiga xush kelibsiz!
 
 📣 Onlayn taqdimot kanaliga qo''shiling va quyidagi super sovg''alarni yutib olish imkoniga ega bo''ling:
 
@@ -16,7 +16,7 @@ Qani, boshladik! 👇
 1️⃣ Avvalo kanalga qo''shiling.
 2️⃣ So''ng <b>Obuna bo''ldim ✅</b> tugmasini bosing.' WHERE key = 'start_message';
 
-UPDATE bot_settings SET value = '🎉 <b>"Oltinsoy City" dan Katta Konkurs!</b>
+UPDATE bot_settings SET value = '🎉 <b>"Saodat Shahri Asaka" dan Katta Konkurs!</b>
 Konkursimiz 27-iyundan 3-iyulgacha davom etadi. Sovg‘alar juda ko‘p, imkoniyatdan foydalanib qoling!
 
 🎁 <b>HAR KUNI SOVG‘A (Kunlik Sprint)</b>

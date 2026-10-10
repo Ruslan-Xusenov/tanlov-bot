@@ -435,18 +435,16 @@ async def main():
 
     # ─────────────────── Callback Query Handlers ───────────────────
 
-    @bot.on(events.CallbackQuery)
-    async def on_callback(event):
-        try:
-            sender_id = event.sender_id
-            if not is_admin(cfg, sender_id):
-                await event.answer(f"❌ Ruxsat yo'q (ID: {sender_id})", alert=True)
-                return
+    async def _handle_callback(event):
+        sender_id = event.sender_id
+        if not is_admin(cfg, sender_id):
+            await event.answer(f"❌ Ruxsat yo'q (ID: {sender_id})", alert=True)
+            return
 
-            data = event.data
+        data = event.data
 
-            if data == b"refresh_dash":
-                await event.edit(get_dashboard_text(cfg, pool), parse_mode="html", buttons=get_dashboard_keyboard(cfg))
+        if data == b"refresh_dash":
+            await event.edit(get_dashboard_text(cfg, pool), parse_mode="html", buttons=get_dashboard_keyboard(cfg))
 
         elif data == b"start_auto":
             cfg["is_running"] = True
@@ -584,6 +582,11 @@ async def main():
                 "Bekor qilish uchun /cancel deb yozing.",
                 parse_mode="html"
             )
+
+    @bot.on(events.CallbackQuery)
+    async def on_callback(event):
+        try:
+            await _handle_callback(event)
         except MessageNotModifiedError:
             try:
                 await event.answer("Ma'lumotlar o'zgarmadi")

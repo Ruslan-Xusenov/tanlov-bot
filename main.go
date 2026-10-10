@@ -38,6 +38,15 @@ func main() {
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
+	u.AllowedUpdates = []string{
+		"message",
+		"edited_message",
+		"channel_post",
+		"edited_channel_post",
+		"callback_query",
+		"chat_member",
+		"my_chat_member",
+	}
 
 	updates := bot.GetUpdatesChan(u)
 

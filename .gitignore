@@ -4,3 +4,12 @@ tanlov-bot
 deploy.sh
 bot_app
 tanlov-bot.db
+tanlov-test-bot
+userbot/venv/
+userbot/__pycache__/
+__pycache__/
+*.session*
+userbot/*.session*
+userbot/sessions/
+userbot/config.json
+userbot/sent_users.txt

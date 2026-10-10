@@ -14,6 +14,16 @@ services:
     ports:
       - "8085:8080"
     
+  userbot:
+    build:
+      context: .
+      dockerfile: Dockerfile.userbot
+    restart: always
+    volumes:
+      - ./userbot/sessions:/app/userbot/sessions
+      - ./userbot/config.json:/app/userbot/config.json
+      - ./userbot/sent_users.txt:/app/userbot/sent_users.txt
+
   db:
     image: postgres:15-alpine
     restart: always

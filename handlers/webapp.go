@@ -165,6 +165,7 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Check if IP is a VPN/Proxy
 	if isVPN, err := checkIPQuality(clientIP); err == nil && isVPN {
+		notifyAdminsVPN(req, clientIP)
 		jsonResponse(w, RegisterResponse{
 			Success: false, 
 			Message: "Siz VPN yoki Proxy tarmog'idan kirdingiz.\n\nIltimos, VPN'ni o'chirib, o'zingizning haqiqiy internetingiz orqali qayta urining!",
@@ -180,11 +181,13 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	deviceID := createDeviceID(req.DeviceInfo, clientIP)
 
 	// Check device ID
-	deviceExists, _, existingDeviceName, err := db.CheckDeviceExists(deviceID, req.UserID)
+	deviceExists, existingDeviceID, existingDeviceName, err := db.CheckDeviceExists(deviceID, req.UserID)
 	if err != nil {
 		log.Printf("[webapp] device check error: %v", err)
 	}
 	if deviceExists {
+		notifyAdminsNakrutka(req, existingDeviceName, existingDeviceID, clientIP)
+
 		jsonResponse(w, RegisterResponse{
 			Success: false,
 			Message: fmt.Sprintf("Bu qurilmadan allaqachon ro'yxatdan o'tilgan!\n\nAvval ro'yxatdan o'tgan: %s\n\nHar bir qurilmadan faqat bitta akkaunt ro'yxatdan o'ta oladi!", existingDeviceName),
@@ -265,16 +268,10 @@ func getClientIP(r *http.Request) string {
 
 // createDeviceID generates a SHA-256 hash from device info
 func createDeviceID(deviceInfo, ip string) string {
-	// The deviceInfo string now comes as: localDeviceId + "|" + hardwareFingerprint
-	// localDeviceId is isolated per Telegram account, so it changes for each account on the same phone.
-	// To block multiple accounts on the SAME physical phone, we must ONLY hash the hardware fingerprint!
-	parts := strings.SplitN(deviceInfo, "|", 2)
-	hardwareFp := deviceInfo
-	if len(parts) == 2 {
-		hardwareFp = parts[1]
-	}
-
-	hash := sha256.Sum256([]byte(hardwareFp))
+	// The deviceInfo string comes as: localDeviceId + "|" + hardwareFingerprint
+	// We hash the ENTIRE string so that identical phones with different Telegram accounts
+	// (or two completely separate identical phones) are treated as distinct devices.
+	hash := sha256.Sum256([]byte(deviceInfo))
 	return fmt.Sprintf("%x", hash)
 }
 
@@ -346,4 +343,73 @@ func checkIPQuality(ip string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// notifyAdminsNakrutka sends an alert to all admins about a possible fake referral attempt
+func notifyAdminsNakrutka(req RegisterRequest, existingName string, existingID int64, clientIP string) {
+	if webAppBot == nil {
+		return
+	}
+	admins, err := db.GetAllAdmins()
+	if err != nil {
+		return
+	}
+	
+	username := req.Username
+	if username == "" {
+		username = "yo'q"
+	} else {
+		username = "@" + username
+	}
+
+	msgText := fmt.Sprintf("⚠️ <b>DIQQAT: Nakrutka urinishi aniqlandi!</b> (99%% ehtimollik)\n\n"+
+		"👤 <b>Yangi urinish (Qoidabuzar):</b>\n"+
+		"ID: <code>%d</code>\n"+
+		"Ism: %s %s\n"+
+		"Username: %s\n"+
+		"IP Manzil: %s\n\n"+
+		"🛡 <b>Mos tushgan eski akkaunt (Asl qurilma egasi):</b>\n"+
+		"Ism: %s\n"+
+		"ID: <code>%d</code>\n\n"+
+		"<i>Ushbu foydalanuvchi bitta qurilmadan (telefon/kompyuter) bir nechta akkaunt orqali kirmokchi bo'ldi va tizim tomonidan avtomatik bloklandi!</i>", 
+		req.UserID, req.FirstName, req.LastName, username, clientIP, existingName, existingID)
+
+	for _, admin := range admins {
+		msg := tgbotapi.NewMessage(admin.ID, msgText)
+		msg.ParseMode = "HTML"
+		webAppBot.Send(msg)
+	}
+}
+
+// notifyAdminsVPN sends an alert to all admins about a possible VPN/Proxy usage
+func notifyAdminsVPN(req RegisterRequest, clientIP string) {
+	if webAppBot == nil {
+		return
+	}
+	admins, err := db.GetAllAdmins()
+	if err != nil {
+		return
+	}
+	
+	username := req.Username
+	if username == "" {
+		username = "yo'q"
+	} else {
+		username = "@" + username
+	}
+
+	msgText := fmt.Sprintf("⚠️ <b>DIQQAT: VPN orqali ulanish urinishi!</b> (Ehtimollik: 80%%)\n\n"+
+		"👤 <b>Urinish egasi:</b>\n"+
+		"ID: <code>%d</code>\n"+
+		"Ism: %s %s\n"+
+		"Username: %s\n"+
+		"IP Manzil: %s\n\n"+
+		"<i>Ushbu foydalanuvchi VPN yoki Proxy tarmog'idan kirib anketa to'ldirishga urindi. Ehtimol, bu xorijdan nakrutka qiluvchi shaxs bo'lishi mumkin. U avtomatik bloklandi!</i>", 
+		req.UserID, req.FirstName, req.LastName, username, clientIP)
+
+	for _, admin := range admins {
+		msg := tgbotapi.NewMessage(admin.ID, msgText)
+		msg.ParseMode = "HTML"
+		webAppBot.Send(msg)
+	}
 }

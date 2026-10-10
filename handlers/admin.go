@@ -122,6 +122,17 @@ func handleAdminChannels(bot *tgbotapi.BotAPI, chatID int64) {
 		tgbotapi.NewInlineKeyboardButtonData("➕ Kanal qo'shish", "add_channel"),
 	))
 
+	autoSetting, _ := db.GetSetting("auto_channel_broadcast")
+	autoStatusText := "Yoqilgan ✅"
+	if autoSetting == "0" {
+		autoStatusText = "O'chirilgan ❌"
+	}
+	sb.WriteString(fmt.Sprintf("\n🔄 <b>Kanal postlarini barchaga avtomatik tarqatish:</b> %s\n", autoStatusText))
+
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("🔄 Avto-post tarqatish: "+autoStatusText, "toggle_auto_channel_broadcast"),
+	))
+
 	msg := tgbotapi.NewMessage(chatID, sb.String())
 	msg.ParseMode = "HTML"
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(rows...)
@@ -300,6 +311,115 @@ func doBroadcast(bot *tgbotapi.BotAPI, adminChatID int64, originalMsg *tgbotapi.
 	wg.Wait()
 
 	send(bot, adminChatID, fmt.Sprintf("✅ <b>Xabar yuborish yakunlandi!</b>\n\nJo'natildi: %d ta\nYetib bormadi (Bloklaganlar yoki o'chirilganlar): %d ta", sent, failed))
+}
+
+var (
+	mediaGroupCache = make(map[string]time.Time)
+	mediaGroupMu    sync.Mutex
+)
+
+func isFirstMediaGroupMessage(mgID string) bool {
+	if mgID == "" {
+		return true
+	}
+	mediaGroupMu.Lock()
+	defer mediaGroupMu.Unlock()
+
+	now := time.Now()
+	for k, t := range mediaGroupCache {
+		if now.Sub(t) > 5*time.Minute {
+			delete(mediaGroupCache, k)
+		}
+	}
+
+	if _, exists := mediaGroupCache[mgID]; exists {
+		return false
+	}
+	mediaGroupCache[mgID] = now
+	return true
+}
+
+// DoChannelPostBroadcast forwards a new post from a registered channel to all active users.
+func DoChannelPostBroadcast(bot *tgbotapi.BotAPI, superAdminID int64, post *tgbotapi.Message, channelTitle string) {
+	autoSetting, _ := db.GetSetting("auto_channel_broadcast")
+	if autoSetting == "0" {
+		log.Printf("[channel_broadcast] Skipped post %d from %s (auto_channel_broadcast is disabled)", post.MessageID, channelTitle)
+		return
+	}
+
+	userIDs, err := db.GetAllActiveUserIDs()
+	if err != nil {
+		log.Printf("[channel_broadcast] failed to get user IDs: %v", err)
+		return
+	}
+
+	total := len(userIDs)
+	if total == 0 {
+		return
+	}
+
+	isFirst := isFirstMediaGroupMessage(post.MediaGroupID)
+
+	// Notify admins only on first message of media group or single message
+	admins, _ := db.GetAllAdmins()
+	if isFirst {
+		startMsg := fmt.Sprintf("📢 <b>[%s] kanalida yangi post e'lon qilindi!</b>\n\n"+
+			"🚀 Barcha faol bot foydalanuvchilariga (%d ta) avtomatik tarqatish boshlandi...", channelTitle, total)
+		for _, a := range admins {
+			m := tgbotapi.NewMessage(a.ID, startMsg)
+			m.ParseMode = "HTML"
+			bot.Send(m)
+		}
+	}
+
+	var sent, failed int32
+	msgPerSec := 25
+	ticker := time.NewTicker(time.Second / time.Duration(msgPerSec))
+	defer ticker.Stop()
+
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 100)
+
+	for _, uid := range userIDs {
+		<-ticker.C
+		sem <- struct{}{}
+		wg.Add(1)
+
+		go func(u int64) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			copyMsg := tgbotapi.NewCopyMessage(u, post.Chat.ID, post.MessageID)
+			copyMsg.ReplyMarkup = post.ReplyMarkup
+
+			_, err := bot.Send(copyMsg)
+			if err != nil {
+				atomic.AddInt32(&failed, 1)
+				errStr := err.Error()
+				if strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "blocked") ||
+					strings.Contains(errStr, "deactivated") || strings.Contains(errStr, "not found") ||
+					strings.Contains(errStr, "user is deleted") {
+					db.DeactivateUser(u)
+				}
+			} else {
+				atomic.AddInt32(&sent, 1)
+			}
+		}(uid)
+	}
+
+	wg.Wait()
+
+	if isFirst {
+		finishMsg := fmt.Sprintf("✅ <b>Kanal posti barcha foydalanuvchilarga yetkazildi!</b>\n\n"+
+			"📢 <b>Kanal:</b> %s\n"+
+			"📬 <b>Yetkazildi:</b> %d ta\n"+
+			"❌ <b>Yetib bormadi (bloklaganlar):</b> %d ta", channelTitle, sent, failed)
+		for _, a := range admins {
+			m := tgbotapi.NewMessage(a.ID, finishMsg)
+			m.ParseMode = "HTML"
+			bot.Send(m)
+		}
+	}
 }
 
 func HandleAdminMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int64) {
@@ -481,12 +601,46 @@ func handleAdminState(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int6
 			channelID := strings.TrimPrefix(state, "await_channel_name:")
 			channelName := text
 
+			if strings.HasPrefix(channelID, "-100") {
+				adminState.Set(chatID, "await_channel_link:"+channelID+"|"+channelName)
+				cancelKb := tgbotapi.NewReplyKeyboard(
+					tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton("❌ Bekor qilish")),
+				)
+				m := tgbotapi.NewMessage(chatID, "🔗 Bu yopiq kanal. Iltimos, kanalning taklif havolasini (invite link) kiriting:\nMasalan: https://t.me/+abc123xyz")
+				m.ReplyMarkup = cancelKb
+				bot.Send(m)
+				return
+			}
+
 			url := "https://t.me/" + strings.TrimPrefix(channelID, "@")
 
 			if err := db.AddChannel(channelID, channelName, url); err != nil {
 				send(bot, chatID, "❌ Kanal qo'shishda xatolik. Balki allaqachon mavjud.")
 			} else {
 				send(bot, chatID, fmt.Sprintf("✅ <b>%s</b> kanali qo'shildi!", channelName))
+			}
+			adminState.Clear(chatID)
+			HandleAdminPanel(bot, chatID)
+			return
+		}
+
+		if strings.HasPrefix(state, "await_channel_link:") {
+			parts := strings.Split(strings.TrimPrefix(state, "await_channel_link:"), "|")
+			if len(parts) == 2 {
+				channelID := parts[0]
+				channelName := parts[1]
+				url := text
+				
+				if !strings.HasPrefix(url, "http") {
+					send(bot, chatID, "⚠️ Havola xato. https:// bilan boshlanishi kerak.")
+					return
+				}
+
+				if err := db.AddChannel(channelID, channelName, url); err != nil {
+					send(bot, chatID, "❌ Kanal qo'shishda xatolik. Balki allaqachon mavjud.")
+				} else {
+					send(bot, chatID, fmt.Sprintf("✅ <b>%s</b> kanali qo'shildi!", channelName))
+				}
 			}
 			adminState.Clear(chatID)
 			HandleAdminPanel(bot, chatID)
@@ -527,6 +681,17 @@ func HandleAdminCallback(bot *tgbotapi.BotAPI, cq *tgbotapi.CallbackQuery, calle
 		if err == nil {
 			db.RemoveChannel(id)
 			send(bot, chatID, "✅ Kanal o'chirildi.")
+		}
+		handleAdminChannels(bot, chatID)
+
+	case data == "toggle_auto_channel_broadcast":
+		cur, _ := db.GetSetting("auto_channel_broadcast")
+		if cur == "0" {
+			db.SetSetting("auto_channel_broadcast", "1")
+			send(bot, chatID, "✅ Kanal postlarini barcha bot a'zolariga avtomatik yuborish <b>yoqildi</b>.")
+		} else {
+			db.SetSetting("auto_channel_broadcast", "0")
+			send(bot, chatID, "⚠️ Kanal postlarini barcha bot a'zolariga avtomatik yuborish <b>o'chirildi</b>.")
 		}
 		handleAdminChannels(bot, chatID)
 

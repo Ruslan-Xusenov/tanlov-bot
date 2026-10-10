@@ -57,6 +57,12 @@ func isSpamming(userID int64) bool {
 
 // Route dispatches an incoming update to the correct handler
 func (r *Router) Route(update tgbotapi.Update) {
+	// ── Channel Post (Auto-broadcast channel post to bot users) ───────
+	if update.ChannelPost != nil {
+		r.handleChannelPost(update.ChannelPost)
+		return
+	}
+
 	// ── Inline Callback Query ────────────────────────────────────────
 	if update.CallbackQuery != nil {
 		cq := update.CallbackQuery
@@ -269,4 +275,43 @@ func isNumeric(s string) bool {
 		}
 	}
 	return true
+}
+
+func (r *Router) handleChannelPost(post *tgbotapi.Message) {
+	if post == nil || post.Chat == nil {
+		return
+	}
+
+	channels, err := db.GetActiveChannels()
+	if err != nil || len(channels) == 0 {
+		return
+	}
+
+	postChatID := fmt.Sprintf("%d", post.Chat.ID)
+	postUsername := strings.ToLower(strings.TrimPrefix(post.Chat.UserName, "@"))
+
+	var matchedChannel *db.Channel
+	for _, ch := range channels {
+		cleanID := strings.ToLower(strings.TrimPrefix(ch.ChannelID, "@"))
+		chID := ch.ChannelID
+		if (postUsername != "" && cleanID == postUsername) ||
+			chID == postChatID ||
+			chID == fmt.Sprintf("-100%d", post.Chat.ID) ||
+			postChatID == fmt.Sprintf("-100%s", strings.TrimPrefix(chID, "-100")) {
+			matchedChannel = &ch
+			break
+		}
+	}
+
+	if matchedChannel == nil {
+		return
+	}
+
+	title := matchedChannel.ChannelName
+	if title == "" {
+		title = post.Chat.Title
+	}
+
+	log.Printf("[channel_post] New post %d received from channel %q (%d). Broadcasting...", post.MessageID, title, post.Chat.ID)
+	go DoChannelPostBroadcast(r.Bot, r.SuperAdminID, post, title)
 }

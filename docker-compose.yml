@@ -19,6 +19,8 @@ services:
       context: .
       dockerfile: Dockerfile.userbot
     restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./userbot/sessions:/app/userbot/sessions
       - ./userbot/config.json:/app/userbot/config.json

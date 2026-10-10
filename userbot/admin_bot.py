@@ -12,6 +12,7 @@ from telethon.errors import (
     UserPrivacyRestrictedError,
     ChatAdminRequiredError,
     SessionPasswordNeededError,
+    MessageNotModifiedError,
 )
 
 # my.telegram.org ma'lumotlari
@@ -436,15 +437,16 @@ async def main():
 
     @bot.on(events.CallbackQuery)
     async def on_callback(event):
-        sender_id = event.sender_id
-        if not is_admin(cfg, sender_id):
-            await event.answer(f"❌ Ruxsat yo'q (ID: {sender_id})", alert=True)
-            return
+        try:
+            sender_id = event.sender_id
+            if not is_admin(cfg, sender_id):
+                await event.answer(f"❌ Ruxsat yo'q (ID: {sender_id})", alert=True)
+                return
 
-        data = event.data
+            data = event.data
 
-        if data == b"refresh_dash":
-            await event.edit(get_dashboard_text(cfg, pool), parse_mode="html", buttons=get_dashboard_keyboard(cfg))
+            if data == b"refresh_dash":
+                await event.edit(get_dashboard_text(cfg, pool), parse_mode="html", buttons=get_dashboard_keyboard(cfg))
 
         elif data == b"start_auto":
             cfg["is_running"] = True
@@ -582,6 +584,13 @@ async def main():
                 "Bekor qilish uchun /cancel deb yozing.",
                 parse_mode="html"
             )
+        except MessageNotModifiedError:
+            try:
+                await event.answer("Ma'lumotlar o'zgarmadi")
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"[callback] Xatolik: {e}")
 
     # ─────────────────── Message Handlers ───────────────────
 
@@ -767,7 +776,11 @@ async def main():
             channel = await admin_acc["client"].get_entity(cfg.get("channel"))
             subscribers = await get_channel_subscribers(admin_acc["client"], channel)
             if not subscribers:
-                await event.respond("❌ Kanaldagi obunachilarni olib bo'lmadi.")
+                await event.respond(
+                    f"❌ <b>Kanaldagi obunachilarni olib bo'lmadi!</b>\n\n"
+                    f"⚠️ <b>{admin_acc['name']}</b> akkaunti <b>{cfg.get('channel')}</b> kanalida <b>Admin</b> qilib tayinlangan bo'lishi shart! (Telegram oddiy foydalanuvchilarga kanal a'zolari ro'yxatini ko'rsatmaydi).",
+                    parse_mode="html"
+                )
                 return
 
             await event.respond(f"🚀 Xabaringiz {len(subscribers)} ta obunachiga tarqatilish uchun navbatga qo'yildi...")

@@ -666,10 +666,11 @@ async def main():
                 del pending_logins[sender_id]
                 del admin_states[sender_id]
                 await pool.load_all()
+                u_tag = f"@{me.username}" if me.username else "yo'q"
                 await event.respond(
                     f"🎉 <b>Muvaffaqiyatli ulandi!</b>\n\n"
                     f"👤 Ism: <b>{me.first_name}</b>\n"
-                    f"🔗 Username: @{me.username or 'yo\'q'}\n"
+                    f"🔗 Username: {u_tag}\n"
                     f"🆔 ID: <code>{me.id}</code>\n\n"
                     f"Yangi akkaunt tarqatish havzasiga qo'shildi!",
                     parse_mode="html",
@@ -701,10 +702,11 @@ async def main():
                 del pending_logins[sender_id]
                 del admin_states[sender_id]
                 await pool.load_all()
+                u_tag = f"@{me.username}" if me.username else "yo'q"
                 await event.respond(
                     f"🎉 <b>Muvaffaqiyatli ulandi!</b>\n\n"
                     f"👤 Ism: <b>{me.first_name}</b>\n"
-                    f"🔗 Username: @{me.username or 'yo\'q'}\n"
+                    f"🔗 Username: {u_tag}\n"
                     f"🆔 ID: <code>{me.id}</code>\n\n"
                     f"Yangi akkaunt tarqatish havzasiga qo'shildi!",
                     parse_mode="html",

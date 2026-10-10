@@ -157,7 +157,8 @@ async def add_new_account():
                 await client.sign_in(password=pwd)
 
             me = await client.get_me()
-            print(f"🎉 Muvaffaqiyatli ulandi: {me.first_name} (@{me.username or 'yo\'q'}, ID: {me.id})")
+            u_tag = f"@{me.username}" if me.username else "yo'q"
+            print(f"🎉 Muvaffaqiyatli ulandi: {me.first_name} ({u_tag}, ID: {me.id})")
         except Exception as e:
             print(f"❌ Ulanishda xatolik yuz berdi: {e}")
             if os.path.exists(session_path + ".session"):

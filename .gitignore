@@ -13,3 +13,4 @@ userbot/*.session*
 userbot/sessions/
 userbot/config.json
 userbot/sent_users.txt
+*.mp4

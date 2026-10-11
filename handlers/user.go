@@ -32,7 +32,7 @@ func HandleUserMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, botUsername 
 		handleReferral(bot, chatID, userID, botUsername)
 	case "🎁 Aksiya haqida":
 		handleAksiya(bot, chatID)
-	case "📘 Qo'llanma", "Qo`llanma": // Fallback for old buttons if any
+	case "📘 Qo'llanma", "Qo`llanma", "📘 Qo‘llanma", "Qo'llanma", "Qo‘llanma":
 		handleQullanma(bot, chatID, nil)
 	case "💎 Ballarim":
 		handleBallarim(bot, chatID, userID)

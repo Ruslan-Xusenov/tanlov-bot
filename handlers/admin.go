@@ -236,17 +236,29 @@ func handleAdminReferralAdEdit(bot *tgbotapi.BotAPI, chatID int64) {
 
 func handleAdminQullanmaEdit(bot *tgbotapi.BotAPI, chatID int64) {
 	cur, _ := db.GetSetting("qullanma_text")
-	adminState.Set(chatID, "await_qullanma_text")
+	videoID, _ := db.GetSetting("qullanma_video_id")
 
-	cancelKb := tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton("❌ Bekor qilish")),
-	)
+	videoLine := "❌ Video yo'q"
+	if videoID != "" {
+		videoLine = "✅ Video bor"
+	}
+
 	msg := tgbotapi.NewMessage(chatID,
-		fmt.Sprintf("📄 <b>Joriy qo'llanma matni:</b>\n\n%s\n\n"+
-			"✏️ Yangi qo'llanma matnini yuboring.", cur),
+		fmt.Sprintf("📄 <b>Qo'llanma sozlamalari</b>\n\n"+
+			"📹 %s\n\n"+
+			"📝 <b>Joriy matn:</b>\n%s\n\n"+
+			"Quyidan amalni tanlang:", videoLine, cur),
 	)
 	msg.ParseMode = "HTML"
-	msg.ReplyMarkup = cancelKb
+	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("✏️ Matnni o'zgartirish", "edit_qullanma_text"),
+			tgbotapi.NewInlineKeyboardButtonData("🎬 Video o'zgartirish", "edit_qullanma_video"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🗑 Videoni o'chirish", "del_qullanma_video"),
+		),
+	)
 	bot.Send(msg)
 }
 
@@ -548,10 +560,40 @@ func handleAdminState(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int6
 		HandleAdminPanel(bot, chatID)
 
 	case "await_qullanma_text":
-		if err := db.SetSetting("qullanma_text", text); err != nil {
+		if msg.Video != nil {
+			db.SetSetting("qullanma_video_id", msg.Video.FileID)
+		} else if msg.Document != nil {
+			db.SetSetting("qullanma_video_id", msg.Document.FileID)
+		}
+		if text == "" && msg.Caption != "" {
+			text = msg.Caption
+		}
+		if text != "" {
+			if err := db.SetSetting("qullanma_text", text); err != nil {
+				send(bot, chatID, "❌ Saqlashda xatolik.")
+			} else {
+				send(bot, chatID, "✅ Qo'llanma matni yangilandi!")
+			}
+		} else if msg.Video != nil || msg.Document != nil {
+			send(bot, chatID, "✅ Qo'llanma videosi saqlandi!")
+		}
+		adminState.Clear(chatID)
+		HandleAdminPanel(bot, chatID)
+
+	case "await_qullanma_video":
+		var fileID string
+		if msg.Video != nil {
+			fileID = msg.Video.FileID
+		} else if msg.Document != nil {
+			fileID = msg.Document.FileID
+		} else {
+			send(bot, chatID, "⚠️ Iltimos, video yuboring (fayl yoki video sifatida).")
+			return
+		}
+		if err := db.SetSetting("qullanma_video_id", fileID); err != nil {
 			send(bot, chatID, "❌ Saqlashda xatolik.")
 		} else {
-			send(bot, chatID, "✅ Qo'llanma matni yangilandi!")
+			send(bot, chatID, "✅ Qo'llanma videosi yangilandi!")
 		}
 		adminState.Clear(chatID)
 		HandleAdminPanel(bot, chatID)
@@ -740,6 +782,29 @@ func HandleAdminCallback(bot *tgbotapi.BotAPI, cq *tgbotapi.CallbackQuery, calle
 		db.SetSetting("start_video_file_id", "")
 		send(bot, chatID, "✅ Video o'chirildi.")
 		handleAdminStartMsg(bot, chatID)
+
+	case data == "edit_qullanma_text":
+		adminState.Set(chatID, "await_qullanma_text")
+		cancelKb := tgbotapi.NewReplyKeyboard(
+			tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton("❌ Bekor qilish")),
+		)
+		m := tgbotapi.NewMessage(chatID, "✏️ Yangi qo'llanma matnini yuboring:")
+		m.ReplyMarkup = cancelKb
+		bot.Send(m)
+
+	case data == "edit_qullanma_video":
+		adminState.Set(chatID, "await_qullanma_video")
+		cancelKb := tgbotapi.NewReplyKeyboard(
+			tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton("❌ Bekor qilish")),
+		)
+		m := tgbotapi.NewMessage(chatID, "🎬 Yangi qo'llanma videosini yuboring (video yoki fayl sifatida):")
+		m.ReplyMarkup = cancelKb
+		bot.Send(m)
+
+	case data == "del_qullanma_video":
+		db.SetSetting("qullanma_video_id", "")
+		send(bot, chatID, "✅ Qo'llanma videosi o'chirildi.")
+		handleAdminQullanmaEdit(bot, chatID)
 	}
 }
 

@@ -242,7 +242,7 @@ func sendPhoneRequestViaBot(userID int64) {
 		}
 	}
 
-	messageText := "✅ <b>Muvaffaqiyatli ro'yxatdan o'tdingiz!</b>\n\n📱 <b>Endi telefon raqamingizni yuboring</b>\n\nRo'yxatdan o'tishni yakunlash uchun quyidagi tugmani bosing:"
+	messageText := "✅ <b>Muvaffaqiyatli ro'yxatdan o'tdingiz!</b>\n\n📱 Ro'yxatdan o'tishni yakunlash uchun pastdagi <b>«📱 Telefon raqamimni yuborish»</b> tugmasini bosing (raqamingiz avtomatik tarzda yuboriladi):"
 
 	msg := tgbotapi.NewMessage(userID, messageText)
 	msg.ParseMode = "HTML"

@@ -23,10 +23,13 @@ func MainMenu() tgbotapi.ReplyKeyboardMarkup {
 // ─────────────────── Phone Number Request ──────────────────
 
 func RequestContactKeyboard() tgbotapi.ReplyKeyboardMarkup {
-	btn := tgbotapi.NewKeyboardButtonContact("📱 Raqamni yuborish")
-	return tgbotapi.NewReplyKeyboard(
+	btn := tgbotapi.NewKeyboardButtonContact("📱 Telefon raqamimni yuborish")
+	kb := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(btn),
 	)
+	kb.ResizeKeyboard = true
+	kb.OneTimeKeyboard = true
+	return kb
 }
 
 // ─────────────────── Admin Menu ──────────────────────────

@@ -143,7 +143,7 @@ func SendPhoneRequest(bot *tgbotapi.BotAPI, chatID int64) {
 	}
 
 	// 2. Send Phone Request
-	phoneMsg := tgbotapi.NewMessage(chatID, "✅ Juda yaxshi!\n\nSizga bog'lana olishimiz uchun pastdagi \"☎️ Raqamni ulashish\" tugmasini bosib telefon raqamingizni yuboring yoki 901112233 kabi yozib yuboring.")
+	phoneMsg := tgbotapi.NewMessage(chatID, "✅ <b>Juda yaxshi!</b>\n\n📱 Ro'yxatdan o'tishni yakunlash uchun pastdagi <b>«📱 Telefon raqamimni yuborish»</b> tugmasini bosing (raqamingiz avtomatik tarzda yuboriladi):")
 	phoneMsg.ReplyMarkup = keyboards.RequestContactKeyboard()
 	phoneMsg.ParseMode = "HTML"
 	bot.Send(phoneMsg)

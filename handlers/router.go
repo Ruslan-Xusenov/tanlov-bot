@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"tanlov-bot/db"
+	"tanlov-bot/keyboards"
 	"tanlov-bot/monitor"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -238,7 +239,10 @@ func (r *Router) Route(update tgbotapi.Update) {
 	if err == nil && user != nil {
 		if user.Phone == "" {
 			if !msg.IsCommand() {
-				send(r.Bot, chatID, "⚠️ Iltimos, ro'yxatdan o'tish uchun \"☎️ Raqamni ulashish\" tugmasini bosing.")
+				msgReq := tgbotapi.NewMessage(chatID, "📱 Ro'yxatdan o'tishni yakunlash uchun pastdagi <b>«📱 Telefon raqamimni yuborish»</b> tugmasini bosing:")
+				msgReq.ParseMode = "HTML"
+				msgReq.ReplyMarkup = keyboards.RequestContactKeyboard()
+				r.Bot.Send(msgReq)
 				return
 			}
 		}

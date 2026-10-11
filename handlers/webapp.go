@@ -175,15 +175,9 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	// Get client IP address
 	clientIP := getClientIP(r)
 
-	// Check if IP is a VPN/Proxy
-	if isVPN, err := checkIPQuality(clientIP); err == nil && isVPN {
-		notifyAdminsVPN(req, clientIP)
-		jsonResponse(w, RegisterResponse{
-			Success: false, 
-			Message: "Siz VPN yoki Proxy tarmog'idan kirdingiz.\n\nIltimos, VPN'ni o'chirib, o'zingizning haqiqiy internetingiz orqali qayta urining!",
-		})
-		return
-	}
+	// (VPN/Proxy blokirovkasi olib tashlandi: Rossiya va xorijdagi yurtdoshlarimiz
+	// cheklovlar sababli VPN orqali kirishadi. Haqiqiy inson ekanligi Captcha,
+	// Device fingerprint va Telegram kontakt tasdiqlash orqali to'liq ta'minlanadi.)
 
 	// (Disabled IP check because mobile networks use Carrier-Grade NAT.
 	// This means thousands of users share the exact same public IP address.

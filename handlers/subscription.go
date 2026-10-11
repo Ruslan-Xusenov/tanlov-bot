@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -30,20 +32,34 @@ func CheckUserSubscriptions(bot *tgbotapi.BotAPI, userID int64, forceCheck bool)
 		wg.Add(1)
 		go func(channel db.Channel) {
 			defer wg.Done()
-			member, err := bot.GetChatMember(tgbotapi.GetChatMemberConfig{
+
+			cfg := tgbotapi.GetChatMemberConfig{
 				ChatConfigWithUser: tgbotapi.ChatConfigWithUser{
-					SuperGroupUsername: channel.ChannelID,
-					UserID:             userID,
+					UserID: userID,
 				},
-			})
+			}
+			rawID := strings.TrimSpace(channel.ChannelID)
+			parts := strings.Fields(rawID)
+			if len(parts) > 0 {
+				rawID = parts[0]
+			}
+			if numID, err := strconv.ParseInt(rawID, 10, 64); err == nil {
+				cfg.ChatID = numID
+			} else {
+				cfg.SuperGroupUsername = rawID
+			}
+
+			member, err := bot.GetChatMember(cfg)
 			if err != nil {
+				log.Printf("[sub] user %d is not member of %s (err: %v)", userID, rawID, err)
 				mu.Lock()
 				notSubscribed = append(notSubscribed, channel)
 				mu.Unlock()
 				return
 			}
 			status := member.Status
-			if status == "left" || status == "kicked" {
+			if status != "creator" && status != "administrator" && status != "member" && status != "restricted" {
+				log.Printf("[sub] user %d status is %s in %s", userID, status, rawID)
 				mu.Lock()
 				notSubscribed = append(notSubscribed, channel)
 				mu.Unlock()

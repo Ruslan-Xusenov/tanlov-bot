@@ -154,6 +154,18 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Verify mandatory channel subscription
+	if webAppBot != nil {
+		ok, _, err := CheckUserSubscriptions(webAppBot, req.UserID, true)
+		if err == nil && !ok {
+			jsonResponse(w, RegisterResponse{
+				Success: false,
+				Message: "Ro'yxatdan o'tishdan oldin botdagi barcha majburiy kanallarga a'zo bo'lishingiz shart!",
+			})
+			return
+		}
+	}
+
 	// Check if user already registered (has region)
 	if db.IsUserRegistered(req.UserID) {
 		jsonResponse(w, RegisterResponse{Success: false, Message: "Bu Telegram akkaunt allaqachon ro'yxatdan o'tgan!"})

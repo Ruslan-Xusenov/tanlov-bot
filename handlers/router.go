@@ -96,11 +96,12 @@ func (r *Router) Route(update tgbotapi.Update) {
 					// 3. Phone check
 					if user.Phone == "" {
 						SendPhoneRequest(r.Bot, chatID)
-					} else if user.ExtraPhone == "" {
-						send(r.Bot, chatID, "📞 Iltimos, doim foydalanadigan telefon raqamingizni yozma ravishda kiriting.")
 					} else {
+						sendWelcome(r.Bot, chatID, GetMenuForUser(userID))
 						CompleteRegistrationFlow(r.Bot, chatID, userID, cq.From.UserName, cq.From.FirstName+" "+cq.From.LastName, r.BotUsername)
 					}
+				} else {
+					SendWebAppButton(r.Bot, chatID)
 				}
 			} else {
 				// Edit the existing message to refresh channel list
@@ -173,15 +174,38 @@ func (r *Router) Route(update tgbotapi.Update) {
 
 	isAdmin := db.IsAdmin(userID) || userID == r.SuperAdminID
 
+	// ── 1. /start command ──
+	if msg.IsCommand() && msg.Command() == "start" {
+		HandleStart(r.Bot, msg, r.SuperAdminID, r.BotUsername)
+		return
+	}
 
-	// ── Web App Registration Check ──
+	// ── 2. Admin shortcut /admin ──
+	if msg.IsCommand() && msg.Command() == "admin" {
+		if !isAdmin {
+			send(r.Bot, chatID, "❌ Sizda admin huquqi yo'q.")
+			return
+		}
+		HandleAdminPanel(r.Bot, chatID)
+		return
+	}
+
+	// ── 3. STRICT SUBSCRIPTION CHECK FOR ALL NON-ADMIN ACTIONS ──
+	// Kanallarga a'zo bo'lmaguncha bot hech qanday xabar, kontakt yoki tugmaga javob bermaydi!
+	if !isAdmin {
+		if !RequireSubscription(r.Bot, chatID, userID, false) {
+			return
+		}
+	}
+
+	// ── 4. Web App Registration Check ──
 	// If user hasn't registered via Web App yet, send them the Web App button
 	if !db.IsUserRegistered(userID) && !msg.IsCommand() {
 		SendWebAppButton(r.Bot, chatID)
 		return
 	}
 
-	// ── Handle Contact (Phone number sharing) ──
+	// ── 5. Handle Contact (Phone number sharing) ──
 	if msg.Contact != nil {
 		if msg.Contact.UserID == userID {
 			phone := msg.Contact.PhoneNumber
@@ -209,7 +233,7 @@ func (r *Router) Route(update tgbotapi.Update) {
 		return
 	}
 
-	// ── Phone Check Gate (Strictly require contact) ──
+	// ── 6. Phone Check Gate (Strictly require contact) ──
 	user, err := db.GetUser(userID)
 	if err == nil && user != nil {
 		if user.Phone == "" {
@@ -218,22 +242,6 @@ func (r *Router) Route(update tgbotapi.Update) {
 				return
 			}
 		}
-	}
-
-	// /start command (handled before subscription gate)
-	if msg.IsCommand() && msg.Command() == "start" {
-		HandleStart(r.Bot, msg, r.SuperAdminID, r.BotUsername)
-		return
-	}
-
-	// Admin shortcut /admin
-	if msg.IsCommand() && msg.Command() == "admin" {
-		if !isAdmin {
-			send(r.Bot, chatID, "❌ Sizda admin huquqi yo'q.")
-			return
-		}
-		HandleAdminPanel(r.Bot, chatID)
-		return
 	}
 
 	// Admin panel button from keyboard

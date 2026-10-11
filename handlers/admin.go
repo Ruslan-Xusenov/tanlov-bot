@@ -626,11 +626,17 @@ func handleAdminState(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int6
 		HandleAdminPanel(bot, chatID)
 
 	case "await_channel_id":
-		if !strings.HasPrefix(text, "@") && !strings.HasPrefix(text, "-100") {
-			send(bot, chatID, "⚠️ Kanal IDsi @ yoki -100 bilan boshlanishi kerak.\nMasalan: @mykanalim")
+		raw := strings.TrimSpace(text)
+		fields := strings.Fields(raw)
+		cleanID := raw
+		if len(fields) > 0 {
+			cleanID = fields[0]
+		}
+		if !strings.HasPrefix(cleanID, "@") && !strings.HasPrefix(cleanID, "-100") {
+			send(bot, chatID, "⚠️ Kanal IDsi @ yoki -100 bilan boshlanishi kerak.\nMasalan: @mykanalim yoki -100123456789")
 			return
 		}
-		adminState.Set(chatID, "await_channel_name:"+text)
+		adminState.Set(chatID, "await_channel_name:"+cleanID)
 		cancelKb := tgbotapi.NewReplyKeyboard(
 			tgbotapi.NewKeyboardButtonRow(tgbotapi.NewKeyboardButton("❌ Bekor qilish")),
 		)

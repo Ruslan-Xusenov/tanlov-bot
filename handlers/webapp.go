@@ -143,6 +143,11 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.TrimSpace(req.DeviceInfo) == "" {
+		jsonResponse(w, RegisterResponse{Success: false, Message: "Qurilma ma'lumotlari aniqlanmadi. Iltimos, Telegram ilovasidan kiring."})
+		return
+	}
+
 	// Validate captcha
 	if req.CaptchaID == "" || req.CaptchaAnswer == "" {
 		jsonResponse(w, RegisterResponse{Success: false, Message: "Captcha kodini kiriting"})

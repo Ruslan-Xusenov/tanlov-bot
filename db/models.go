@@ -594,7 +594,8 @@ func CheckDeviceExists(deviceID string, userID int64) (bool, int64, string, erro
 	var existingName string
 	err := DB.QueryRow(`
 		SELECT id, full_name FROM users 
-		WHERE device_id = $1 AND id != $2 AND device_id != '' AND phone != ''
+		WHERE device_id = $1 AND id != $2 AND device_id != ''
+		LIMIT 1
 	`, deviceID, userID).Scan(&existingID, &existingName)
 	if err != nil {
 		if err == sql.ErrNoRows {

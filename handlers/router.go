@@ -222,6 +222,16 @@ func (r *Router) Route(update tgbotapi.Update) {
 				return
 			}
 
+			// Check if this user's device is already claimed by another registered user
+			userObj, _ := db.GetUser(userID)
+			if userObj != nil && userObj.DeviceID != "" {
+				existsDevice, _, existingName, _ := db.CheckDeviceExists(userObj.DeviceID, userID)
+				if existsDevice {
+					send(r.Bot, chatID, fmt.Sprintf("❌ Bu qurilmadan allaqachon boshqa akkaunt ro'yxatdan o'tgan (%s).\n\nHar bir qurilmadan faqat bitta akkaunt ro'yxatdan o'ta oladi!", existingName))
+					return
+				}
+			}
+
 			if err := db.UpdateUserPhone(userID, phone); err != nil {
 				log.Printf("[router] failed to save phone: %v", err)
 			}

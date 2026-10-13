@@ -77,10 +77,10 @@ func runDailyRewardJob(bot *tgbotapi.BotAPI) {
 
 	for {
 		now := time.Now().In(loc)
-		// Calculate next 20:30
-		target := time.Date(now.Year(), now.Month(), now.Day(), 20, 30, 0, 0, loc)
+		// Calculate next 20:00
+		target := time.Date(now.Year(), now.Month(), now.Day(), 20, 0, 0, 0, loc)
 		if !now.Before(target) {
-			target = target.AddDate(0, 0, 1) // Next day at 20:30
+			target = target.AddDate(0, 0, 1) // Next day at 20:00
 		}
 		duration := target.Sub(now)
 

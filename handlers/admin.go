@@ -273,6 +273,46 @@ func handleAdminBroadcastStart(bot *tgbotapi.BotAPI, chatID int64) {
 	bot.Send(msg)
 }
 
+// broadcastSend attempts to send a message to a user, handling rate limits (429) with automatic retry
+func broadcastSend(bot *tgbotapi.BotAPI, c tgbotapi.Chattable, userID int64) error {
+	var err error
+	maxRetries := 3
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		_, err = bot.Send(c)
+		if err == nil {
+			return nil
+		}
+
+		errStr := err.Error()
+
+		// If user has blocked the bot or account is deleted, deactivate and stop
+		if strings.Contains(errStr, "Forbidden: bot was blocked by the user") ||
+			strings.Contains(errStr, "Forbidden: user is deactivated") ||
+			strings.Contains(errStr, "user is deleted") {
+			db.DeactivateUser(userID)
+			return err
+		}
+
+		// If Telegram throttles us (Too Many Requests / 429), respect retry_after and retry
+		if strings.Contains(errStr, "Too Many Requests") || strings.Contains(errStr, "retry after") {
+			waitSec := 3
+			var parsedSec int
+			if _, scanErr := fmt.Sscanf(errStr, "Too Many Requests: retry after %d", &parsedSec); scanErr == nil && parsedSec > 0 {
+				waitSec = parsedSec + 1
+			}
+			time.Sleep(time.Duration(waitSec) * time.Second)
+			continue
+		}
+
+		// Other temporary network error: brief sleep and retry
+		if attempt < maxRetries {
+			time.Sleep(300 * time.Millisecond)
+			continue
+		}
+	}
+	return err
+}
+
 func doBroadcast(bot *tgbotapi.BotAPI, adminChatID int64, originalMsg *tgbotapi.Message) {
 	userIDs, err := db.GetAllActiveUserIDs()
 	if err != nil {
@@ -283,17 +323,16 @@ func doBroadcast(bot *tgbotapi.BotAPI, adminChatID int64, originalMsg *tgbotapi.
 	total := len(userIDs)
 	var sent, failed int32
 
-	send(bot, adminChatID, fmt.Sprintf("⏳ Xabar yuborish boshlandi. Jami aktiv foydalanuvchilar: %d ta. Tugagach xabar beraman. Bu jarayon tezlashtirilgan rejimda (sekundiga ~25 ta xabar) amalga oshirilmoqda.", total))
+	send(bot, adminChatID, fmt.Sprintf("⏳ Xabar yuborish boshlandi. Jami aktiv foydalanuvchilar: %d ta. Tugagach xabar beraman. Bu jarayon tezlashtirilgan rejimda (sekundiga ~20 ta xabar) amalga oshirilmoqda.", total))
 
 	// Telegram bot limit is 30 messages per second globally.
-	// We use 25 msgs/sec to leave room for normal bot interactions.
-	msgPerSec := 25
+	// We use 20 msgs/sec for safety and stability without triggering 429 rate limits.
+	msgPerSec := 20
 	ticker := time.NewTicker(time.Second / time.Duration(msgPerSec))
 	defer ticker.Stop()
 
 	var wg sync.WaitGroup
-	// Limit max concurrent goroutines to avoid memory bloat
-	sem := make(chan struct{}, 100)
+	sem := make(chan struct{}, 25)
 
 	for _, uid := range userIDs {
 		<-ticker.C
@@ -307,13 +346,8 @@ func doBroadcast(bot *tgbotapi.BotAPI, adminChatID int64, originalMsg *tgbotapi.
 			copyMsg := tgbotapi.NewCopyMessage(u, originalMsg.Chat.ID, originalMsg.MessageID)
 			copyMsg.ReplyMarkup = originalMsg.ReplyMarkup
 
-			_, err := bot.Send(copyMsg)
-			if err != nil {
+			if err := broadcastSend(bot, copyMsg, u); err != nil {
 				atomic.AddInt32(&failed, 1)
-				errStr := err.Error()
-				if strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "blocked") || strings.Contains(errStr, "deactivated") || strings.Contains(errStr, "not found") || strings.Contains(errStr, "user is deleted") {
-					db.DeactivateUser(u)
-				}
 			} else {
 				atomic.AddInt32(&sent, 1)
 			}
@@ -322,7 +356,7 @@ func doBroadcast(bot *tgbotapi.BotAPI, adminChatID int64, originalMsg *tgbotapi.
 
 	wg.Wait()
 
-	send(bot, adminChatID, fmt.Sprintf("✅ <b>Xabar yuborish yakunlandi!</b>\n\nJo'natildi: %d ta\nYetib bormadi (Bloklaganlar yoki o'chirilganlar): %d ta", sent, failed))
+	send(bot, adminChatID, fmt.Sprintf("✅ <b>Xabar yuborish yakunlandi!</b>\n\nJo'natildi: %d ta\nYetib bormadi (Botni o'chirib qo'yganlar): %d ta", sent, failed))
 }
 
 var (
@@ -385,12 +419,12 @@ func DoChannelPostBroadcast(bot *tgbotapi.BotAPI, superAdminID int64, post *tgbo
 	}
 
 	var sent, failed int32
-	msgPerSec := 25
+	msgPerSec := 20
 	ticker := time.NewTicker(time.Second / time.Duration(msgPerSec))
 	defer ticker.Stop()
 
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 100)
+	sem := make(chan struct{}, 25)
 
 	for _, uid := range userIDs {
 		<-ticker.C
@@ -404,15 +438,8 @@ func DoChannelPostBroadcast(bot *tgbotapi.BotAPI, superAdminID int64, post *tgbo
 			copyMsg := tgbotapi.NewCopyMessage(u, post.Chat.ID, post.MessageID)
 			copyMsg.ReplyMarkup = post.ReplyMarkup
 
-			_, err := bot.Send(copyMsg)
-			if err != nil {
+			if err := broadcastSend(bot, copyMsg, u); err != nil {
 				atomic.AddInt32(&failed, 1)
-				errStr := err.Error()
-				if strings.Contains(errStr, "Forbidden") || strings.Contains(errStr, "blocked") ||
-					strings.Contains(errStr, "deactivated") || strings.Contains(errStr, "not found") ||
-					strings.Contains(errStr, "user is deleted") {
-					db.DeactivateUser(u)
-				}
 			} else {
 				atomic.AddInt32(&sent, 1)
 			}
@@ -425,7 +452,7 @@ func DoChannelPostBroadcast(bot *tgbotapi.BotAPI, superAdminID int64, post *tgbo
 		finishMsg := fmt.Sprintf("✅ <b>Kanal posti barcha foydalanuvchilarga yetkazildi!</b>\n\n"+
 			"📢 <b>Kanal:</b> %s\n"+
 			"📬 <b>Yetkazildi:</b> %d ta\n"+
-			"❌ <b>Yetib bormadi (bloklaganlar):</b> %d ta", channelTitle, sent, failed)
+			"❌ <b>Yetib bormadi (Botni o'chirib qo'yganlar):</b> %d ta", channelTitle, sent, failed)
 		for _, a := range admins {
 			m := tgbotapi.NewMessage(a.ID, finishMsg)
 			m.ParseMode = "HTML"

@@ -404,7 +404,7 @@ func GetUserStats() (UserStats, error) {
 }
 
 func GetAllActiveUserIDs() ([]int64, error) {
-	rows, err := DB.Query(`SELECT id FROM users WHERE is_active = 1`)
+	rows, err := DB.Query(`SELECT id FROM users WHERE (banned_until IS NULL OR banned_until <= NOW())`)
 	if err != nil {
 		return nil, err
 	}

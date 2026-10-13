@@ -323,7 +323,7 @@ func doBroadcast(bot *tgbotapi.BotAPI, adminChatID int64, originalMsg *tgbotapi.
 	total := len(userIDs)
 	var sent, failed int32
 
-	send(bot, adminChatID, fmt.Sprintf("⏳ Xabar yuborish boshlandi. Jami aktiv foydalanuvchilar: %d ta. Tugagach xabar beraman. Bu jarayon tezlashtirilgan rejimda (sekundiga ~20 ta xabar) amalga oshirilmoqda.", total))
+	send(bot, adminChatID, fmt.Sprintf("⏳ Xabar yuborish boshlandi. Jami foydalanuvchilar (shunchaki start bosganlar ham): %d ta. Tugagach xabar beraman. Bu jarayon tezlashtirilgan rejimda (sekundiga ~20 ta xabar) amalga oshirilmoqda.", total))
 
 	// Telegram bot limit is 30 messages per second globally.
 	// We use 20 msgs/sec for safety and stability without triggering 429 rate limits.

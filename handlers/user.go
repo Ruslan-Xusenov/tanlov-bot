@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"html"
 	"log"
 	"strings"
 
@@ -114,59 +115,67 @@ func handleRatingSelection(bot *tgbotapi.BotAPI, chatID int64, userID int64, isD
 		return
 	}
 
-	title := "📅 <b>Kunlik Reyting (Top 5):</b>\n\n"
+	header := "🏡 SAODAT SHAHRI loyihasidan xonadon xarid qiling!\n\n" +
+		"🟣 Boshlang'ich to'lovsiz\n" +
+		"🩷 Bitta pasport bilan\n" +
+		"🟡 60 oyga, foiz va penyasiz\n\n" +
+		"━━━━━━━━━━━━━━\n"
+
+	title := "📅 Kunlik reyting (Top 5):\n"
 	if !isDaily {
-		title = "🌐 <b>Umumiy Reyting (Top 5):</b>\n\n"
+		title = "🏆 Umumiy reyting (Top 5):\n"
 	}
 
-	if len(users) == 0 {
-		send(bot, chatID, title+"Hali hech kim ro'yxatdan o'tmagan.")
-		return
-	}
-
-	medals := []string{"🥇", "🥈", "🥉"}
 	var sb strings.Builder
+	sb.WriteString(header)
 	sb.WriteString(title)
 
-	for i, u := range users {
-		medal := fmt.Sprintf("%d.", i+1)
-		if i < len(medals) {
-			medal = medals[i]
-		}
+	if len(users) == 0 {
+		sb.WriteString("Hali hech kim ro'yxatdan o'tmagan.\n")
+	} else {
+		medals := []string{"🥇", "🥈", "🥉", "4️⃣", "5️⃣"}
+		for i, u := range users {
+			medal := fmt.Sprintf("%d.", i+1)
+			if i < len(medals) {
+				medal = medals[i]
+			}
 
-		name := u.FullName
-		if name == "" && u.Username != "" {
-			name = "@" + u.Username
-		}
-		if name == "" {
-			name = fmt.Sprintf("User#%d", u.ID)
-		}
+			name := html.EscapeString(u.FullName)
+			if name == "" && u.Username != "" {
+				name = "@" + html.EscapeString(u.Username)
+			}
+			if name == "" {
+				name = fmt.Sprintf("User#%d", u.ID)
+			}
 
-		score := u.ReferralCount
-		if !isDaily {
-			score = u.TotalReferralCount
-		}
+			score := u.ReferralCount
+			if !isDaily {
+				score = u.TotalReferralCount
+			}
 
-		if isAdmin {
-			sb.WriteString(fmt.Sprintf("%s <b>%s</b> — %d ta (Jami: %d ta)\n", medal, name, score, u.TotalReferralCount))
-		} else {
-			sb.WriteString(fmt.Sprintf("%s <b>%s</b> — %d ta\n", medal, name, score))
+			if isAdmin && isDaily {
+				sb.WriteString(fmt.Sprintf("%s %s — %d ta (Jami: %d ta)\n", medal, name, score, u.TotalReferralCount))
+			} else {
+				sb.WriteString(fmt.Sprintf("%s %s — %d ta\n", medal, name, score))
+			}
 		}
 	}
 
+	sb.WriteString("━━━━━━━━━━━━━━\n")
+
 	// Motivational message logic
-	if !isAdmin {
-		rank, fifthScore, err := db.GetUserRank(userID, isDaily)
-		if err == nil {
-			if rank == -1 {
-				sb.WriteString("\n💡 <i>Siz avvalgi kunlarda g'olib bo'lganingiz uchun bugungi kunlik reytingda ishtirok etmaysiz (boshqalarga imkoniyat berish maqsadida). Lekin siz qo'shayotgan odamlar umumiy reytingda hisoblanmoqda! Olg'a!</i>")
-			} else if rank > limit {
-				missing := fifthScore - getScore(userID, isDaily) + 1 // +1 to overtake or tie
-				if missing <= 0 {
-					missing = 1 // At least 1 to be safe
-				}
-				sb.WriteString(fmt.Sprintf("\n💡 <i>Sizning hozirgi o'rningiz: <b>%d-o'rin</b>.\nTop %d reytingga kirishingiz uchun yana <b>%d ta</b> do'stingizni chaqirishingiz kerak! Olg'a!</i>", rank, limit, missing))
+	rank, fifthScore, err := db.GetUserRank(userID, isDaily)
+	if err == nil {
+		if rank == -1 {
+			sb.WriteString("💡 <i>Siz avvalgi kunlarda g'olib bo'lganingiz uchun bugungi kunlik reytingda ishtirok etmaysiz (boshqalarga imkoniyat berish maqsadida). Lekin siz qo'shayotgan odamlar umumiy reytingda hisoblanmoqda! Olg'a!</i>\n")
+		} else if rank <= limit {
+			sb.WriteString(fmt.Sprintf("📍 Sizning hozirgi o'rningiz: %d-o'rin (Top %d talikdasiz! 🎉)\n🚀 O'rningizni saqlab qolish uchun do'stlaringizni taklif qilishda davom eting! 🎁\n", rank, limit))
+		} else {
+			missing := fifthScore - getScore(userID, isDaily) + 1 // +1 to overtake or tie
+			if missing <= 0 {
+				missing = 1 // At least 1 to be safe
 			}
+			sb.WriteString(fmt.Sprintf("📍 Sizning hozirgi o'rningiz: %d-o'rin\n🚀 Top %d ga kirish uchun yana %d ta do'stingizni taklif qiling. Olg'a, sovg'alar sizni kutmoqda! 🎁\n", rank, limit, missing))
 		}
 	}
 

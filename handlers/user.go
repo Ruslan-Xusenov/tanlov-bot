@@ -93,9 +93,14 @@ func handleBallarim(bot *tgbotapi.BotAPI, chatID, userID int64) {
 	var daily, total int
 	db.DB.QueryRow(`SELECT referral_count FROM users WHERE id = $1`, userID).Scan(&daily)
 	db.DB.QueryRow(`SELECT total_referral_count FROM users WHERE id = $1`, userID).Scan(&total)
-	send(bot, chatID, fmt.Sprintf("👥 Siz chaqirgan foydalanuvchilar:\n\n📅 Bugun: <b>%d ta</b>\n🌐 Jami: <b>%d ta</b>", daily, total))
-}
 
+	text := fmt.Sprintf("🏡 SAODAT SHAHRI loyihasidan xonadon xarid qiling!\n"+
+		"🪙 Kuniga atigi 166 ming so'mdan to'lab, o'z xonadoningiz egasiga aylaning!\n"+
+		"━━━━━━━━━━━━━━\n"+
+		"👥 Siz taklif qilgan foydalanuvchilar:\n"+
+		"📅 Bugun: %d ta   🌐 Jami: %d ta", daily, total)
+	send(bot, chatID, text)
+}
 
 func handleRatingSelection(bot *tgbotapi.BotAPI, chatID int64, userID int64, isDaily bool, isAdmin bool) {
 	var users []db.User
@@ -115,20 +120,26 @@ func handleRatingSelection(bot *tgbotapi.BotAPI, chatID int64, userID int64, isD
 		return
 	}
 
-	header := "🏡 SAODAT SHAHRI loyihasidan xonadon xarid qiling!\n\n" +
-		"🟣 Boshlang'ich to'lovsiz\n" +
-		"🩷 Bitta pasport bilan\n" +
-		"🟡 60 oyga, foiz va penyasiz\n\n" +
-		"━━━━━━━━━━━━━━\n"
-
-	title := "📅 Kunlik reyting (Top 5):\n"
-	if !isDaily {
-		title = "🏆 Umumiy reyting (Top 5):\n"
-	}
-
 	var sb strings.Builder
-	sb.WriteString(header)
-	sb.WriteString(title)
+	if isDaily {
+		var daily, total int
+		db.DB.QueryRow(`SELECT referral_count FROM users WHERE id = $1`, userID).Scan(&daily)
+		db.DB.QueryRow(`SELECT total_referral_count FROM users WHERE id = $1`, userID).Scan(&total)
+
+		sb.WriteString("🏡 SAODAT SHAHRI loyihasidan xonadon xarid qiling!\n" +
+			"🪙 Kuniga atigi 166 ming so'mdan to'lab, o'z xonadoningiz egasiga aylaning!\n" +
+			"━━━━━━━━━━━━━━\n" +
+			fmt.Sprintf("👥 Siz taklif qilgan foydalanuvchilar:\n📅 Bugun: %d ta   🌐 Jami: %d ta\n", daily, total) +
+			"━━━━━━━━━━━━━━\n" +
+			"📅 Kunlik reyting (Top 5):\n")
+	} else {
+		sb.WriteString("🏡 SAODAT SHAHRI loyihasidan xonadon xarid qiling!\n\n" +
+			"🟣 Boshlang'ich to'lovsiz\n" +
+			"🩷 Bitta pasport bilan\n" +
+			"🟡 60 oyga, foiz va penyasiz\n\n" +
+			"━━━━━━━━━━━━━━\n" +
+			"🏆 Umumiy reyting (Top 5):\n")
+	}
 
 	if len(users) == 0 {
 		sb.WriteString("Hali hech kim ro'yxatdan o'tmagan.\n")

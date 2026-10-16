@@ -252,12 +252,14 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 
 	if videoID != "" {
 		videoMsg := tgbotapi.NewVideo(chatID, tgbotapi.FileID(videoID))
-		if len(finalMessage) > 1024 {
+		runes := []rune(finalMessage)
+		if len(runes) > 1024 {
 			cutoff := 1000
-			if idx := strings.LastIndex(finalMessage[:1000], "\n"); idx > 500 {
-				cutoff = idx
+			str1000 := string(runes[:1000])
+			if idx := strings.LastIndex(str1000, "\n"); idx > 500 {
+				cutoff = len([]rune(str1000[:idx]))
 			}
-			videoMsg.Caption = finalMessage[:cutoff]
+			videoMsg.Caption = string(runes[:cutoff])
 			videoMsg.ParseMode = "HTML"
 			sentMsg, errSend = bot.Send(videoMsg)
 			if errSend == nil {

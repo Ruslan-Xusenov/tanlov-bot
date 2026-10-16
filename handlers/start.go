@@ -9,6 +9,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"tanlov-bot/db"
 	"tanlov-bot/keyboards"
+	"tanlov-bot/utils"
 )
 
 // HandleStart processes the /start command with optional referral parameter
@@ -78,7 +79,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 	}
 	if !ok {
 		kb := BuildSubscriptionKeyboard(missing)
-		sendWelcome(bot, chatID, kb)
+		sendWelcome(bot, chatID, userID, kb)
 		return
 	}
 
@@ -106,7 +107,7 @@ func HandleStart(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, superAdminID int64
 
 	// ── Send welcome & Complete Registration ──
 	menu := GetMenuForUser(userID)
-	sendWelcome(bot, chatID, menu)
+	sendWelcome(bot, chatID, userID, menu)
 	CompleteRegistrationFlow(bot, chatID, userID, username, fullName, botUsername)
 }
 
@@ -158,9 +159,19 @@ func formatUserIdentifier(username, fullName string) string {
 }
 
 // sendWelcome sends the configured start message (with optional video)
-func sendWelcome(bot *tgbotapi.BotAPI, chatID int64, markup interface{}) {
+func sendWelcome(bot *tgbotapi.BotAPI, chatID, userID int64, markup interface{}) {
 	text, _ := db.GetSetting("start_message")
 	videoFileID, _ := db.GetSetting("start_video_file_id")
+
+	botUsername := bot.Self.UserName
+	if botUsername != "" && userID > 0 {
+		link := utils.BuildReferralLink(botUsername, userID)
+		if strings.Contains(text, "{link}") {
+			text = strings.ReplaceAll(text, "{link}", link)
+		} else if strings.Contains(text, "Sizning referal havolangiz:") && !strings.Contains(text, link) {
+			text = strings.TrimSpace(text) + "\n" + link
+		}
+	}
 
 	if videoFileID != "" {
 		video := tgbotapi.NewVideo(chatID, tgbotapi.FileID(videoFileID))

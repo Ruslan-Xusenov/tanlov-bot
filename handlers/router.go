@@ -98,7 +98,7 @@ func (r *Router) Route(update tgbotapi.Update) {
 					if user.Phone == "" {
 						SendPhoneRequest(r.Bot, chatID)
 					} else {
-						sendWelcome(r.Bot, chatID, GetMenuForUser(userID))
+						sendWelcome(r.Bot, chatID, userID, GetMenuForUser(userID))
 						CompleteRegistrationFlow(r.Bot, chatID, userID, cq.From.UserName, cq.From.FirstName+" "+cq.From.LastName, r.BotUsername)
 					}
 				} else {
@@ -236,7 +236,7 @@ func (r *Router) Route(update tgbotapi.Update) {
 				log.Printf("[router] failed to save phone: %v", err)
 			}
 			
-			sendWelcome(r.Bot, chatID, GetMenuForUser(userID))
+			sendWelcome(r.Bot, chatID, userID, GetMenuForUser(userID))
 			CompleteRegistrationFlow(r.Bot, chatID, userID, msg.From.UserName, msg.From.FirstName+" "+msg.From.LastName, r.BotUsername)
 		} else {
 			send(r.Bot, chatID, "⚠️ Iltimos, o'zingizning raqamingizni yuboring. Boshqa profil raqami qabul qilinmaydi.")

@@ -224,7 +224,7 @@ func handleAdminReferralAdEdit(bot *tgbotapi.BotAPI, chatID int64) {
 	)
 	msg := tgbotapi.NewMessage(chatID,
 		fmt.Sprintf("📣 <b>Joriy reklama matni:</b>\n\n%s\n\n"+
-			"✏️ Yangi reklama matnini yuboring. (Yoki rasm bilan birga caption tarzida yuboring)\n"+
+			"✏️ Yangi reklama matnini yuboring. (Yoki rasm/video bilan birga caption tarzida yuboring)\n"+
 			"<i>Siz matn ichida quyidagi maxsus so'zlardan foydalanishingiz mumkin:</i>\n"+
 			"<b>{link}</b> — foydalanuvchining shaxsiy referal havolasi\n"+
 			"<b>{count}</b> — foydalanuvchi taklif qilgan odamlar soni", cur),
@@ -560,25 +560,36 @@ func handleAdminState(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, callerID int6
 
 	case "await_referral_ad_text":
 		adText := text
-		if len(msg.Photo) > 0 {
-			// Get highest quality photo
-			photo := msg.Photo[len(msg.Photo)-1]
-			db.SetSetting("referral_ad_photo_id", photo.FileID)
+		hasMedia := false
+		if msg.Video != nil {
+			db.SetSetting("referral_ad_video_id", msg.Video.FileID)
+			db.SetSetting("referral_ad_photo_id", "")
+			hasMedia = true
 			if msg.Caption != "" {
 				adText = msg.Caption
-			} else {
-				adText = "" // keep existing ad text maybe? No, let's use whatever they sent or empty string if just photo. Wait, if they just send photo, let's empty it if caption is empty.
 			}
-		} else {
-			// Clear photo if they just sent text
+		} else if msg.Document != nil && strings.HasPrefix(msg.Document.MimeType, "video/") {
+			db.SetSetting("referral_ad_video_id", msg.Document.FileID)
 			db.SetSetting("referral_ad_photo_id", "")
+			hasMedia = true
+			if msg.Caption != "" {
+				adText = msg.Caption
+			}
+		} else if len(msg.Photo) > 0 {
+			photo := msg.Photo[len(msg.Photo)-1]
+			db.SetSetting("referral_ad_photo_id", photo.FileID)
+			db.SetSetting("referral_ad_video_id", "")
+			hasMedia = true
+			if msg.Caption != "" {
+				adText = msg.Caption
+			}
 		}
 
-		if adText != "" || len(msg.Photo) > 0 {
+		if adText != "" || hasMedia {
 			if adText != "" {
 				db.SetSetting("referral_ad_text", adText)
 			}
-			send(bot, chatID, "✅ Reklama matni va rasm yangilandi!")
+			send(bot, chatID, "✅ Reklama matni va media yangilandi!")
 		} else {
 			send(bot, chatID, "❌ Hech narsa kiritilmadi.")
 		}

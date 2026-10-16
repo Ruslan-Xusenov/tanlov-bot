@@ -218,6 +218,7 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 		finalMessage = adText + statsText
 	}
 
+	videoID, _ := db.GetSetting("referral_ad_video_id")
 	photoID, _ := db.GetSetting("referral_ad_photo_id")
 
 	var sentMsg tgbotapi.Message
@@ -229,7 +230,31 @@ func handleReferral(bot *tgbotapi.BotAPI, chatID, userID int64, botUsername stri
 		),
 	)
 
-	if photoID != "" {
+	if videoID != "" {
+		videoMsg := tgbotapi.NewVideo(chatID, tgbotapi.FileID(videoID))
+		if len(finalMessage) > 1024 {
+			videoMsg.Caption = "ASAKADA YANGI HAYOT QURILYAPTI! 🔥"
+			sentMsg, errSend = bot.Send(videoMsg)
+			if errSend == nil {
+				txtMsg := tgbotapi.NewMessage(chatID, finalMessage)
+				txtMsg.ParseMode = "HTML"
+				txtMsg.ReplyMarkup = inlineKb
+				sentMsg, errSend = bot.Send(txtMsg)
+			}
+		} else {
+			videoMsg.Caption = finalMessage
+			videoMsg.ParseMode = "HTML"
+			videoMsg.ReplyMarkup = inlineKb
+			sentMsg, errSend = bot.Send(videoMsg)
+		}
+		if errSend != nil {
+			log.Printf("[user] Failed to send referral video: %v, falling back to text", errSend)
+			txtMsg := tgbotapi.NewMessage(chatID, finalMessage)
+			txtMsg.ParseMode = "HTML"
+			txtMsg.ReplyMarkup = inlineKb
+			sentMsg, errSend = bot.Send(txtMsg)
+		}
+	} else if photoID != "" {
 		photoMsg := tgbotapi.NewPhoto(chatID, tgbotapi.FileID(photoID))
 		photoMsg.Caption = finalMessage
 		photoMsg.ParseMode = "HTML"

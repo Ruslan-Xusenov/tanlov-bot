@@ -12,7 +12,7 @@ services:
     depends_on:
       - db
     ports:
-      - "8085:8080"
+      - "127.0.0.1:8085:8080"
     
   userbot:
     build:
@@ -34,7 +34,7 @@ services:
       POSTGRES_PASSWORD: kali
       POSTGRES_DB: tanlov
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 

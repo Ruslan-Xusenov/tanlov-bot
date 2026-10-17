@@ -619,6 +619,22 @@
                 
                 if (result.success) {
                     showMessage('success', '✅ ' + result.message);
+                    // Send Meta CAPI Lead Event
+                    try {
+                        fetch('/api/capi', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                event_name: 'Lead',
+                                first_name: firstName,
+                                last_name: lastName,
+                                event_source_url: window.location.href,
+                                pixel_id: '1425322323077211'
+                            }),
+                            keepalive: true
+                        }).catch(() => {});
+                    } catch (e) {}
+
                     // Disable form
                     document.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
                     // Close Web App after delay

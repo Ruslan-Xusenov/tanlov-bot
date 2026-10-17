@@ -225,6 +225,11 @@ func CompleteRegistrationFlow(bot *tgbotapi.BotAPI, chatID, userID int64, userna
 	// 2. Send Qo'llanma with the main menu attached
 	menu := GetMenuForUser(userID)
 	handleQullanma(bot, chatID, menu)
+
+	// 3. Send Meta Conversions API (CAPI) event
+	if user != nil && user.Phone != "" {
+		SendCAPIEventAsync("CompleteRegistration", user.Phone, fullName, "")
+	}
 }
 
 func sendTextWelcome(bot *tgbotapi.BotAPI, chatID int64, text string, markup interface{}) {
